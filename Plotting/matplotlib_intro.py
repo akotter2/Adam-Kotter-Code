@@ -1,7 +1,7 @@
 # matplotlib_intro.py
 """Python Essentials: Intro to Matplotlib.
 Adam Kotter
-White/Gray Cohort
+Math 321 - 1
 8/29/18
 """
 

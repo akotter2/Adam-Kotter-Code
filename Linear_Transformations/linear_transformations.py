@@ -335,5 +335,5 @@ def np_timing():
 if __name__ == "__main__":
     #test_plot("horse.npy")
     #solar_system(np.pi*2, 400, 401, 1, 13)
-    #prob3()
+    #np_timing()
     solar_system_animation(np.pi*2, 10, 11, 1, 13)

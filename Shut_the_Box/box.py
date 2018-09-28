@@ -1,5 +1,5 @@
 # box.py
-"""Python Essentials: The Standard Library. Auxiliary file (do not modify)."""
+"""Shut the box auxiliary file (do not modify)."""
 
 from itertools import combinations
 

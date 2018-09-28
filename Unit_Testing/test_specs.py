@@ -1,7 +1,7 @@
 # test_specs.py
 """Python Essentials: Unit Testing.
 Adam Kotter
-White/Gray Cohort
+Math 321 - 1
 8/31/18
 """
 
