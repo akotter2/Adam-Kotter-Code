@@ -8,6 +8,7 @@ Math 345 - 1
 from random import random
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib.animation import FuncAnimation
 import time
 
 
@@ -49,7 +50,8 @@ def test_plot(file):
     plt.gca().set_aspect("equal")
     plt.show()
 
-# Problem 1
+
+#Linear Transformations:
 def stretch(A, a, b):
     """Scale the points in A by a in the x direction and b in the
     y direction.
@@ -101,8 +103,7 @@ def rotate(A, theta):
     return M@A
 
 
-# Problem 2
-def solar_system(T, x_e, x_m, omega_e, omega_m):
+def solar_system(T, x_e, x_m, omega_e, omega_m, plot=True):
     """Plot the trajectories of the earth and moon over the time interval [0,T]
     assuming the initial position of the earth is (x_e,0) and the initial
     position of the moon is (x_m,0). Calculates trajectory over 1000 steps.
@@ -113,6 +114,7 @@ def solar_system(T, x_e, x_m, omega_e, omega_m):
         x_m (float): The moon's initial x coordinate.
         omega_e (float): The earth's angular velocity.
         omega_m (float): The moon's angular velocity.
+        plot (boolean): Whether to print the plot or return the trajectory coordinates
     """
     #Set p_e0 (earth's initial position) and p_m0 (moon's initial position)
     p_e0 = np.array([x_e, 0])
@@ -148,12 +150,56 @@ def solar_system(T, x_e, x_m, omega_e, omega_m):
         t += (T/1000)
         i += 1
     #Plot the orbits
-    plt.plot(p_et[0], p_et[1], "b-")
-    plt.plot(p_mt[0], p_mt[1], "r-")
-    plt.gca().set_aspect("equal")
+    if plot == True:
+        plt.plot(p_et[0], p_et[1], "b-")
+        plt.plot(p_mt[0], p_mt[1], "r-")
+        plt.gca().set_aspect("equal")
+        plt.show()
+    #Return the position vectors
+    else:
+        return (p_et, p_mt)
+
+
+def solar_system_animation(T, x_e, x_m, omega_e, omega_m):
+    """Plot the trajectories of the earth and moon over the time interval [0,T]
+    assuming the initial position of the earth is (x_e,0) and the initial
+    position of the moon is (x_m,0). Calculates and animates trajectories over 1000
+    frames.
+
+    Parameters:
+        T (int): The final time.
+        x_e (float): The earth's initial x coordinate.
+        x_m (float): The moon's initial x coordinate.
+        omega_e (float): The earth's angular velocity.
+        omega_m (float): The moon's angular velocity."""
+    (earth, moon) = solar_system(T, x_e, x_m, omega_e, omega_m, False)
+    # Make a figure explicitly.
+    fig, ax = plt.subplots(1,1)
+    # Set the window limits.
+    plt.axis([-1.1*(x_m),1.1*(x_m),-1.1*(x_m),1.1*(x_m)])
+    # Make the window square.
+    ax.set_aspect("equal")
+    # Blue dot for the earth.
+    earth_dot, = ax.plot([],[], 'C0o', ms=10)
+    # Blue line for the earth.
+    earth_path, = ax.plot([],[], 'C0-')
+    # Green dot for the moon.
+    moon_dot, = ax.plot([],[], 'C2o', ms=5)
+    # Green line for the moon.
+    moon_path, = ax.plot([],[], 'C2-')
+    # Yellow dot for the sun.
+    ax.plot([0],[0],'yo', ms=20)
+    def animate(index):
+        earth_dot.set_data(earth[0,index], earth[1,index])
+        earth_path.set_data(earth[0,:index], earth[1,:index])
+        moon_dot.set_data(moon[0,index], moon[1,index])
+        moon_path.set_data(moon[0,:index], moon[1,:index])
+        return earth_dot, earth_path, moon_dot, moon_path,
+    a = FuncAnimation(fig, animate, frames=earth.shape[1], interval=25)
     plt.show()
 
-
+    
+#Creating and timing multiplication of random vectors and matrices
 def random_vector(n):
     """Generate a random vector of length n as a list."""
     return [random() for i in range(n)]
@@ -174,47 +220,120 @@ def matrix_matrix_product(A, B):
                                     for j in range(p) ]
                                     for i in range(m) ]
 
-# Problem 3
-def prob3():
-    """Use time.time(), timeit.timeit(), or %timeit to time
-    matrix_vector_product() and matrix-matrix-mult() with increasingly large
-    inputs. Generate the inputs A, x, and B with random_matrix() and
-    random_vector() (so each input will be nxn or nx1).
-    Only time the multiplication functions, not the generating functions.
 
-    Report your findings in a single figure with two subplots: one with matrix-
-    vector times, and one with matrix-matrix times. Choose a domain for n so
-    that your figure accurately describes the growth, but avoid values of n
-    that lead to execution times of more than 1 minute.
+def timing():
+    """Uses time.time() to time matrix_vector_product() and matrix-matrix-mult() 
+    with increasingly large inputs. Generates the inputs A, x, and B with 
+    random_matrix() and random_vector() (so each input will be nxn or nx1).
+    Only time the multiplication functions, not the generating functions.
+    Reports findings in a single figure with two subplots: one with matrix-
+    vector times, and one with matrix-matrix times.
     """
-    #Generate inputs
-    #Time matrix-vector multiplication
-    #Time matrix-matrix multiplication
+
+    #Initialize lists of times
+    times_m = []
+    times_v = []
+    #Repeat eight times
+    for n in range(1,9):
+        #Generate inputs
+        A = random_matrix(2**n)
+        B = random_matrix(2**n)
+        x = random_vector(2**n)
+        #Time matrix-matrix multiplication
+        start_m = time.time()
+        matrix_matrix_product(A,B)
+        end_m = time.time()
+        #Time matrix-vector multiplication
+        start_v = time.time()
+        matrix_vector_product(A,x)
+        end_v = time.time()
+        #Enter times in lists
+        times_m.append(end_m - start_m)
+        times_v.append(end_v - start_v)
     #Plot results
+    n_list = [2**n for n in range(1,len(times_v)+1)]
     plt.subplot(121)
     plt.title("Matrix-Vector Multiplication")
-    plt.plot(domain, times, "b.-")
+    plt.plot(n_list, times_v, "b.-")
     plt.xlabel("n")
     plt.ylabel("Seconds")
     plt.subplot(122)
     plt.title("Matrix-Matrix Multiplication")
-    plt.plot(domain, times, "g.-")
+    plt.plot(n_list, times_m, "g.-")
     plt.xlabel("n")
     plt.ylabel("Seconds")
-    plt.show
-    raise NotImplementedError("Problem 3 Incomplete")
+    plt.show()
 
 
-# Problem 4
-def prob4():
-    """Time matrix_vector_product(), matrix_matrix_product(), and np.dot().
-
-    Report your findings in a single figure with two subplots: one with all
-    four sets of execution times on a regular linear scale, and one with all
-    four sets of exections times on a log-log scale.
+def np_timing():
+    """Times matrix_vector_product(), matrix_matrix_product(), and np.dot().
+    Report findings in a single figure with two subplots: one with all four sets 
+    of execution times on a regular linear scale, and one with all four sets of 
+    exections times on a log-log scale.
     """
-    raise NotImplementedError("Problem 4 Incomplete")
 
+    #Initialize lists of times
+    times_m_np = []
+    times_v_np = []
+    times_m = []
+    times_v = []
+    #Repeat nine times
+    for n in range(1,10):
+        #Generate normal Python inputs
+        A1 = random_matrix(2**n)
+        B1 = random_matrix(2**n)
+        x1 = random_vector(2**n)
+        #Generate NumPy inputs
+        A2 = np.array(random_matrix(2**n))
+        B2 = np.array(random_matrix(2**n))
+        x2 = np.array(random_vector(2**n))
+        #Time normal matrix-matrix multiplication
+        start_m = time.time()
+        matrix_matrix_product(A1,B1)
+        end_m = time.time()
+        #Time normal matrix-vector multiplication
+        start_v = time.time()
+        matrix_vector_product(A1,x1)
+        end_v = time.time()
+        #Time NumPy matrix-matrix multiplication
+        start_m_np = time.time()
+        A2@B2
+        end_m_np = time.time()
+        #Time NumPy matrix-vector multiplication
+        start_v_np = time.time()
+        A2@x2
+        end_v_np = time.time()
+        #Enter times in lists
+        times_m.append(end_m - start_m)
+        times_v.append(end_v - start_v)
+        times_m_np.append(end_m_np - start_m_np)
+        times_v_np.append(end_v_np - start_v_np)
+    #Plot results
+    n_list = [2**n for n in range(1,len(times_v)+1)]
+    plt.subplot(121)
+    plt.title("Linear Scale")
+    plt.plot(n_list, times_m, "b.-", label="Normal Matrix-Matrix")
+    plt.plot(n_list, times_m_np, "r.-", label="NumPy Matrix-Matrix")
+    plt.plot(n_list, times_v, "g.-", label="Normal Matrix-Vector")
+    plt.plot(n_list, times_v_np, "y.-", label="NumPy Matrix-Vector")
+    plt.legend(loc="upper left")
+    plt.xlabel("n")
+    plt.ylabel("Seconds")
+    plt.subplot(122)
+    plt.title("Log Scale")
+    plt.loglog(n_list, times_m, "b.-", label="Normal Matrix-Matrix", basex=2, basey=2)
+    plt.loglog(n_list, times_m_np, "r.-", label="NumPy Matrix-Matrix", basex=2, basey=2)
+    plt.loglog(n_list, times_v, "g.-", label="Normal Matrix-Vector", basex=2, basey=2)
+    plt.loglog(n_list, times_v_np, "y.-", label="NumPy Matrix-Vector", basex=2, basey=2)
+    plt.legend(loc="upper left")
+    plt.xlabel("n")
+    plt.ylabel("Seconds")
+    plt.show()
+    
+    
+#For testing purposes
 if __name__ == "__main__":
     #test_plot("horse.npy")
-    solar_system(np.pi*2, 400, 401, 1, 13)
+    #solar_system(np.pi*2, 400, 401, 1, 13)
+    #prob3()
+    solar_system_animation(np.pi*2, 10, 11, 1, 13)
