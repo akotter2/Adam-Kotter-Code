@@ -14,11 +14,14 @@ projects from school.
 3. Plotting: Exploring the use of `matplotlib` to plot data
    - FARS.npy: A collection of data points representing automobile accidents
    - matplotlib_intro.py
-4. Shut the Box: A fun game of chance for teaching addition
+4. RPG: A text-based game I'm developing.
+   -Battle_Arena.py: The main file to be run to implement the game
+   -Tokens.py: A supplementary file that enables characters to experience different effects
+5. Shut the Box: A fun game of chance for teaching addition
    - Box.py: Some additional commands to be imported
    - Shut_the_Box.py
-5. Unit Testing: Practicing the method of unit testing
+6. Unit Testing: Practicing the method of unit testing
    - specs.py
    - test_specs.py
-6. Other:
+7. Other:
    - Exceptions_FileIO.py
