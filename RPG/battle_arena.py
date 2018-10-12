@@ -72,6 +72,10 @@ class Character:
             self.scan()
         elif action == "block":
             self.block()
+        elif action == "fire":
+            self.fire_attack()
+        elif action == "save":
+            self.save()
         else:
             print("That's not a valid action.")
             self.action()
@@ -118,10 +122,17 @@ class Character:
     
 
     def block(self):
-        """Reduces damage by 50% for one turn."""
+        """Reduces damage from target by 50% for one turn."""
         block_token = tokens.BlockToken(self)
         block_token.apply()
         self.effects.append(block_token)
+
+
+    def fire_attack(self):
+        """Places a fire token on the target"""
+        fire_token = tokens.FireToken(self.target)
+        self.target.effects.append(fire_token)
+        print(self.target.name + " is on fire!")
     
 
     def level_up(self):
@@ -129,7 +140,81 @@ class Character:
 
 
     def save(self):
-        """To be implemented later"""
+        """Writes the character's stats to an appropriately named outfile."""
+
+        def _write(attempts):
+            """A helper function to recursively attempt to write to an appropriately named and numbered outfile."""
+            try:
+                with open(self.name + "_" + self._class + "_" + str(attempts) + ".txt", "x") as outfile:
+                    outfile.write(self.name + "\n")
+                    outfile.write(self._class + "\n")
+                    outfile.write(str(self.stamina_max) + "\n")
+                    outfile.write(str(self.recharge) + "\n")
+                    outfile.write(str(self.strength) + "\n")
+                    outfile.write(str(self.health) + "\n")
+                    outfile.write(str(self.stamina) + "\n")
+                    outfile.write(str(self.exp) + "\n")
+                    outfile.write(str(self.level) + "\n")
+                    for b in self.backpack:
+                        outfile.write(str(b) + "\n")
+                    for e in self.effects:
+                        outfile.write(str(e) + "\n")
+            except FileExistsError:
+                choice = input("Character of that class by that name already exists. [O]verwrite or create [N]ew file? ")
+                if choice == "O":
+                    with open(self.name + "_" + self._class + "_" + str(attempts) + ".txt", "w") as outfile:
+                        outfile.write(self.name + "\n")
+                        outfile.write(self._class + "\n")
+                        outfile.write(str(self.stamina_max) + "\n")
+                        outfile.write(str(self.recharge) + "\n")
+                        outfile.write(str(self.strength) + "\n")
+                        outfile.write(str(self.health) + "\n")
+                        outfile.write(str(self.stamina) + "\n")
+                        outfile.write(str(self.exp) + "\n")
+                        outfile.write(str(self.level) + "\n")
+                        for b in self.backpack:
+                            outfile.write(str(b) + "\n")
+                        for e in self.effects:
+                            outfile.write(str(e) + "\n")
+                if choice == "N":
+                    _write(attempts+1)
+        
+        #Attempt to write to a file with a simple name.
+        try:
+            with open(self.name + "_" + self._class + ".txt", "x") as outfile:
+                outfile.write(self.name + "\n")
+                outfile.write(self._class + "\n")
+                outfile.write(str(self.stamina_max) + "\n")
+                outfile.write(str(self.recharge) + "\n")
+                outfile.write(str(self.strength) + "\n")
+                outfile.write(str(self.health) + "\n")
+                outfile.write(str(self.stamina) + "\n")
+                outfile.write(str(self.exp) + "\n")
+                outfile.write(str(self.level) + "\n")
+                for b in self.backpack:
+                    outfile.write(str(b) + "\n")
+                for e in self.effects:
+                    outfile.write(str(e) + "\n")
+        #If simple name already exists, recursively choose to overwrite or add a unique number to the end
+        except FileExistsError:
+                choice = input("Character of that class by that name already exists. [O]verwrite or create [N]ew file? ")
+                if choice == "O":
+                    with open(self.name + "_" + self._class + ".txt", "w") as outfile:
+                        outfile.write(self.name + "\n")
+                        outfile.write(self._class + "\n")
+                        outfile.write(str(self.stamina_max) + "\n")
+                        outfile.write(str(self.recharge) + "\n")
+                        outfile.write(str(self.strength) + "\n")
+                        outfile.write(str(self.health) + "\n")
+                        outfile.write(str(self.stamina) + "\n")
+                        outfile.write(str(self.exp) + "\n")
+                        outfile.write(str(self.level) + "\n")
+                        for b in self.backpack:
+                            outfile.write(str(b) + "\n")
+                        for e in self.effects:
+                            outfile.write(str(e) + "\n")
+                if choice == "N":
+                    _write(1)
 
 
 
@@ -148,13 +233,37 @@ class Arena:
         Fight: Begins and runs a battle between the players.
         Check effects (Character): iterates through a player's effects and applies or undoes them appropriately."""
 
-    def load_save(self):
-        """To be implemented later"""
-
-
     def __init__(self, player1=None, player2=None):
         self.player1 = player1
         self.player2 = player2
+
+    def load_save(self):
+        """Loads a saved character file specified by user input. Saved files have names of the format "name_class.txt" or "name_class_#", with larger numbers being more 
+        recent saves."""
+        name = input("Specify the name of a character to load: ")
+        _class = input("Specify the class of that character: ")
+        num = input("Are there multiple saved files of this character? If so, specify the save number: ")
+        if num.isdigit():
+            if int(num) != 0:
+                with open(name + "_" + _class + "_" + num + ".txt", "r") as file:
+                    stats_raw = file.read()
+                stats = stats_raw.split("\n")
+            else:
+                with open(name + "_" + _class + ".txt", "r") as file:
+                    stats_raw = file.read()
+                stats = stats_raw.split("\n")
+        else:
+            with open(name + "_" + _class + ".txt", "r") as file:
+                stats_raw = file.read()
+            stats = stats_raw.split("\n")
+        new_character = Character(stats[0], stats[1], exp=stats[7], level=stats[8])
+        new_character.stamina_max = stats[2]
+        new_character.recharge = stats[3]
+        new_character.strength = stats[4]
+        new_character.health = stats[5]
+        new_character.stamina = stats[6]
+        #Backpack load to be implemented later
+        #Token load to be implemented later
 
 
     def check_effects(self, player):
