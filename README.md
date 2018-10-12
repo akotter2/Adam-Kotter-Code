@@ -14,7 +14,7 @@ projects from school.
 3. Plotting: Exploring the use of `matplotlib` to plot data
    - FARS.npy: A collection of data points representing automobile accidents
    - matplotlib_intro.py
-4. RPG: A text-based game I'm developing.
+4. RPG: A text-based game I'm developing
    -Battle_Arena.py: The main file to be run to implement the game
    -Tokens.py: A supplementary file that enables characters to experience different effects
 5. Shut the Box: A fun game of chance for teaching addition

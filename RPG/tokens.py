@@ -6,7 +6,7 @@ class Token:
     
     Attributes:
         Name (str): the effect's name.
-        Timer (int): the number of turns until the effect it undoes itself, usually decremented by 1 per turn by the Arena hosting the battle.
+        Timer (int): the number of turns until the effect undoes itself, usually decremented by 1 per turn by the Arena hosting the battle.
         Used (bool): whether or not the effect can be applied again.
         Host (Character): the character receiving the effect.
     
