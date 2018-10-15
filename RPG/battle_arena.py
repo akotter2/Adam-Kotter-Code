@@ -256,6 +256,8 @@ class Arena:
             with open(name + "_" + _class + ".txt", "r") as file:
                 stats_raw = file.read()
             stats = stats_raw.split("\n")
+        for i in range(2,9):
+            stats[i] = int(stats[i])
         new_character = Character(stats[0], stats[1], exp=stats[7], level=stats[8])
         new_character.stamina_max = stats[2]
         new_character.recharge = stats[3]
@@ -264,6 +266,10 @@ class Arena:
         new_character.stamina = stats[6]
         #Backpack load to be implemented later
         #Token load to be implemented later
+        return new_character
+
+    def load_class(self, _class):
+        """Creates a generic character of a given class, to be implemented later"""
 
 
     def check_effects(self, player):
@@ -306,7 +312,9 @@ class Arena:
 
 
 if __name__ == "__main__":
-    Gimli = Character("Gimli", "Dwarf")
-    Ghook = Character("Ghook", "Orc")
-    arena = Arena(Gimli, Ghook)
+    #Gimli = Character("Gimli", "Dwarf")
+    #Ghook = Character("Ghook", "Orc")
+    arena = Arena()
+    arena.player1 = arena.load_save()
+    arena. player2 = arena.load_save()
     arena.fight()
