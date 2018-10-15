@@ -17,6 +17,7 @@ projects from school.
 4. RPG: A text-based game I'm developing
    - Battle_Arena.py: The main file to be run to implement the game
    - Tokens.py: A supplementary file that enables characters to experience different effects
+   - "name" _ "class" .txt: A character save file to use previous characters in new games.
 5. Shut the Box: A fun game of chance for teaching addition
    - Box.py: Some additional commands to be imported
    - Shut_the_Box.py
