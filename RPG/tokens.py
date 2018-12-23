@@ -90,3 +90,30 @@ class FireToken(Token):
     def __str__(self):
         """Inherits from the Token superclass and adds the amount of damage done."""
         return Token.__str__(self) + "," + str(self.damage)
+
+
+
+
+class HealToken(Token):
+    """A subclass of the Token class. Heals the host each turn.
+    Default time: 4 turns
+    Default healing per turn: 5"""
+    
+    def __init__(self, host, timer=4, heal=5):
+        Token.__init__(self, host, timer)
+        self.name = "Heal"
+        self.heal = heal
+
+    def apply(self):
+        """Accesses the host's health and adds the given amount of health"""
+        self.host.health += self.heal
+        print(self.host.name + " was healed by " + str(self.heal) + " points.")
+        print(self.host.name + " has " + str(self.host.health) + " health.")
+    
+    def undo(self):
+        """Prints that the fire damage is over"""
+        print(self.host.name + " is no longer being healed.")
+
+    def __str__(self):
+        """Inherits from the Token superclass and adds the amount of damage done."""
+        return Token.__str__(self) + "," + str(self.damage)

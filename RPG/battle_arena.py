@@ -3,11 +3,8 @@
 Requires the tokens.py module for full functionality."""
 
 import tokens
-
-class Equipment():
-    """To be implemented later."""
-
-
+import things
+import numpy as np
 
 
 class Character:
@@ -23,7 +20,7 @@ class Character:
         Health (int): how much damage the character can receive before dying, defined initially by their class.
         Experience (int): used to increase the character's statistics, to be implemented later.
         Level (int): used to track the number of increases to the character's statistics, to be implemented later.
-        Backpack (list: Equipment): used to track what equipment a character is holding, to be implemented later.
+        Backpack (list: Thing): used to track what things a character is holding, to be implemented later.
         Effects (list: Token): used to track the effects a character is being affected by.
         Target (Character): the character's enemy, the target of the character's offensive actions.
 
@@ -40,17 +37,27 @@ class Character:
 
 
     def get_class(self,_class):
-        """Returns a stamina maximum, stamina recharge rate, strength, and health based on the given class."""
+        """Returns a stamina maximum, stamina recharge rate, strength, health, magic attack, magic defense, and dexterity based on the given class."""
         if _class == "Dwarf":
-            return 6, 3, 8, 100
-        if _class == "Orc":
-            return 7, 1, 10, 100
+            return 6, 3, 8, 100, 3, 3, 5
+        elif _class == "Orc":
+            return 7, 1, 10, 100, 1, 0, 3
+        elif _class == "Mage":
+            return 3, 1, 3, 90, 10, 8, 3
+        elif _class == "Warrior":
+            return 7, 2, 9, 100, 1, 1, 5
+        elif _class == "Assassin":
+            return 10, 4, 8, 75, 3, 3, 10
+        elif _class == "Healer":
+            return 3, 1, 3, 90, 8, 10, 4
+        else:
+            return 3, 1, 3, 75, 0, 0, 2
 
 
     def __init__(self, name, _class, exp=0, level=0):
         self.name = name
         self._class = _class
-        self.stamina_max, self.recharge, self.strength, self.health = self.get_class(_class)
+        self.stamina_max, self.recharge, self.strength, self.health, self.magic_atk, self.magic_dfn, self.dex = self.get_class(_class)
         self.stamina = self.stamina_max
         self.exp = exp
         self.level = level
@@ -64,18 +71,32 @@ class Character:
         action = input("What would " + self.name + " like to do? ")
         if action == "attack":
             self.attack(self.target)
-        elif action == "charge":
-            self.charge()
-        elif action == "heal":
-            self.heal()
-        elif action == "scan":
-            self.scan()
         elif action == "block":
             self.block()
+        elif action == "charge":
+            self.charge()
+        elif action == "equip":
+            self.equip()
         elif action == "fire":
             self.fire_attack()
+        elif action == "get item":
+            self.get_item()
+        elif action == "heal":
+            self.heal()
+        elif action == "heal spell":
+            self.heal_spell()
         elif action == "save":
             self.save()
+        elif action == "scan":
+            self.scan()
+        elif action == "use item":
+            self.use_item()
+        elif action == "admin fire":
+            self.fire_attack_admin()
+        elif action == "admin heal spell":
+            self.heal_spell_admin()
+        elif action == "help":
+            print("Possible actions: \n'attack'\n'block'\n'charge'\n'equip'\n'fire'\n'get item'\n'heal'\n'heal spell'\n'save'\n'scan'\n'use item'\n'help'")
         else:
             print("That's not a valid action.")
             self.action()
@@ -83,15 +104,38 @@ class Character:
 
     def attack(self, enemy):
         """Lowers the health of your enemy."""
+        #Don't attack if you're low on stamina
         if self.stamina < 1:
             print("You are out of stamina! Charge now!")
             self.action()
         else:
-            enemy.health -= self.strength
-            print(enemy.name + " received " + str(self.strength) + " points of damage!")
+            #Give the target a chance to dodge based on their dexterity
+            if np.random.binomial(1, (enemy.dex*7.5)/100) == 1:
+                print(enemy.name + " dodged the attack!"
+            else:
+                #Check for critical strike
+                crit = 1
+                if np.random.binomial(1, (self.dex*7.5)/100) == 1:
+                    crit = 5
+                #Check for blocking
+                if any([e.name == "Block" for e in enemy.effects]):
+                    for e in enemy.effects:
+                        if e.name == "Block":
+                            enemy.health -= self.strength*(e.percentage/100)*crit
+                            print(enemy.name + " received " + str(self.strength*(e.percentage/100))*crit + " points of damage!")
+                else:
+                    enemy.health -= self.strength
+                    print(enemy.name + " received " + str(self.strength)*crit + " points of damage!")
             print(enemy.name + " health: " + str(enemy.health))
             self.stamina -= 1
             print(self.name + " has " + str(self.stamina) + " stamina.")
+    
+
+    def block(self):
+        """Reduces damage from target by 50% for one turn."""
+        block_token = tokens.BlockToken(self)
+        block_token.apply()
+        self.effects.append(block_token)
 
 
     def charge(self):
@@ -104,10 +148,36 @@ class Character:
             print(self.name + "'s stamina: " + str(self.stamina))
 
 
+    def equip(self):
+        """Chooses an item based on user input and equips it, altering the character's stats."""
+        print("Items in the backpack: ")
+        print(self.backpack)
+        item = input("Which item would you like to equip? ")
+
+
+    def fire_attack(self):
+        """Places a fire token on the target"""
+        fire_token = tokens.FireToken(self.target)
+        self.target.effects.append(fire_token)
+        print(self.target.name + " is on fire!")
+
+
+    def get_item(self):
+        """Chooses an item based on user input and adds it to the backpack, enabling it to be used later."""
+        item = input("Which item would you like to get? ")
+
+
     def heal(self):
         """Increases your health by one."""
         self.health += 1
         print(self.name + "'s health: " + str(self.health))
+
+
+    def heal_spell(self):
+        """Places a heal token on the player"""
+        heal_token = tokens.HealToken(self)
+        self.effects.append(heal_token)
+        print(self.name + " is being healed!")
 
 
     def scan(self):
@@ -119,20 +189,29 @@ class Character:
         for e in self.effects:
             print(e.name + ": " + str(e.timer) + " turns left.")
         self.action()
-    
-
-    def block(self):
-        """Reduces damage from target by 50% for one turn."""
-        block_token = tokens.BlockToken(self)
-        block_token.apply()
-        self.effects.append(block_token)
 
 
-    def fire_attack(self):
-        """Places a fire token on the target"""
-        fire_token = tokens.FireToken(self.target)
+    def use_item(self):
+        """Chooses an item from the backpack based on user input and activates its effect."""
+        item = input("Which item would you like to use? ")
+
+
+    def fire_attack_admin(self):
+        """Places a fire token of variable strength and duration on the target"""
+        time = int(input("How long will the fire last? "))
+        dmg = int(input("How powerful is the fire? "))
+        fire_token = tokens.FireToken(self.target,timer=time,damage=dmg)
         self.target.effects.append(fire_token)
         print(self.target.name + " is on fire!")
+
+
+    def heal_spell_admin(self):
+        """Places a heal token of variable strength and duration on the player"""
+        time = int(input("How long will the healing last? "))
+        hlth = int(input("How powerful is the healing? "))
+        heal_token = tokens.HealToken(self, timer=time, heal=hlth)
+        self.effects.append(heal_token)
+        print(self.name + " is being healed!")
     
 
     def level_up(self):
@@ -306,6 +385,14 @@ class Arena:
             if self.player1.health < 1:
                 defeated = self.player1
                 break
+        if defeated is None:
+            if self.player2.health <= 0:
+                defeated = self.player2
+            elif self.player1.health <= 0:
+                defeated = self.player1
+            if self.player2.health <= 0 and self.player1.health <= 0:
+                print("Both " + self.player1.name + " and " + self.player2.name + " have been defeated.")
+                return
         print(defeated.name + " has been defeated!")
         
 
