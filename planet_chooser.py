@@ -73,18 +73,6 @@ class Planet():
         nonessential = sum((self.attributes[7:10])) / 7
         return essential + nonessential
     
-    #Removed because the habitability function is better
-    """ 
-    def simple_habitability(self):
-        #A simpler version of the habitability function for testing purposes.
-        return np.mean([self.gravity, self.water, self.atmosphere, self.temperature, 
-                       self.food, self.resources, self.radiation, self.life, 
-                       self.relics, self.neighbors])
-
-    def both_habitability(self):
-        return self.habitability(), self.simple_habitability()
-    #"""
-    
     def __str__(self):
         return self.name
     
@@ -104,10 +92,10 @@ class Ship():
     Sometimes a ship is physically incapable of handling potential colony sites with 
     certain properties, such as very dangerous wildlife or constantly extreme cold. 
     The No-Go's attribute automatically disqualifies any potential colony site with a 
-    negative value in an attribute corresponding to a True value in the No-Go's list. 
-    For example, a planet with a -0.2 in the Life attribute could never be colonized 
-    by a ship with a True value in nogo[7] because that ship simply cannot handle the 
-    dangerous life forms on the planet.
+    sufficiently low value in different planetary attributes. For example, a planet 
+    with a -0.5 in the Life attribute could never be colonized by a ship with a value 
+    of 0 in nogo[7] because that ship simply cannot handle the dangerous life forms 
+    on the planet.
     
     Attributes:
     (Note that each attribute with a bracketed number is stored in that position of 
@@ -137,17 +125,17 @@ class Ship():
         artifacts on a planet impacts colonial suitability, default 1.
         Neighbors[9] (float): how the helpfulness or dangerousness of intelligent life 
         on a planet impacts colonial suitability, default 1.
-        No-Go's (ndarray, bool): whether or not a negative value in a planetary 
-        attribute is permissible for considering a potential colony site, where each 
-        position in the array corresponds to the attribute in the same position in 
-        the list of planetary attributes.
+        No-Go's (ndarray, float): how low of a value in a planetary attribute is 
+        permissible for considering a potential colony site, where each position in 
+        the array corresponds to the attribute in the same position in the list of 
+        planetary attributes.
     
     Functions:
         Get_Planet (None; Planet): returns a random Planet object for decision making.
         Choose (Planet; bool): decides whether or not to colonize a planet.
     """
     
-    def __init__(self, name, col=1000, sca=1, con=1, needs=np.full(10,1), nogo=np.full(10,False)):
+    def __init__(self, name, col=1000, sca=1, con=1, needs=np.full(10,1), nogo=np.full(10,-1)):
         """Accepts a name, a number of colonists, a scanner quality, a construction 
         module quality, and a list-like object of floats between 0 and 5, then 
         assigns the list elements to the different ship needs. Additionally, accepts 
@@ -161,20 +149,44 @@ class Ship():
         self.nogo = nogo
 
     def get_planet(self):
-        """Creates a random planet.
+        """Creates a random planet drawn from a uniform distribution.
         Future updates will allow for draws from different distributions."""
         return Planet("Random", np.random.randint(-10, 11, size=10)/10)
 
-    def score(self, planet=None):
+    def score(self, planet=None, model="full", desperation=-2.8, standards=3.9, baseline=0.2):
         """Return the colonizability score (which is a probability value) of a given 
         planet given the ship's current state. If no planet is given, a random one is 
-        generated."""
+        generated.
+        
+        Parameters:
+            Planet (Planet): the planet being analyzed, defaults to random.
+            Model (str): the probability scaling model used for determining 
+            colonizability. The default ("full") is a composition of an exponential 
+            and a logistic model. Other options include "exponential" and "logistic", 
+            with more coming in future updates.
+            Desperation (float): how willing the ship is to settle for less-than-ideal 
+            conditions, corresponding to a horizontal shift in logistic-based models. 
+            The more negative the value, the less desperate the ship, the more 
+            positive the value, the more desperate the ship.
+            Baseline (float): how necessary and non-negotiable ideal conditions in 
+            general are for the ship during the scoring. This corresponds to a 
+            scaling of the exponential term of exponential-based models. Must be a 
+            positive value, with larger values corresponding to a greater need for 
+            ideal conditions.
+            Standards (float): how quickly non-ideal conditions become unacceptable, 
+            corresponding to a scaling of the x-term within the exponential of 
+            logistic-based models. Must be positive, with larger values representing 
+            faster increases in unacceptability after a certain habitability 
+            threshold is reached.
+            """
+        if type(model) != str:
+            raise TypeError("Probability scaling model must be in string format")
         #Create random planet if necessary
         if planet is None:
             planet = self.get_planet()
         #Check for deal breakers
         for i in range(10):
-            if self.nogo[i] and planet.attributes[i] < 0:
+            if self.nogo[i] > planet.attributes[i]:
                 return 0
         #Scale planetary attributes according to the ship's needs.
         scaled = [self.needs[i]*planet.attributes[i] for i in range(10)]
@@ -183,7 +195,16 @@ class Ship():
         #Sum and scale the nonessential scaled attributes
         nonessential = sum((scaled[7:10])) / 7
         #Get the planet's colonizability score
-        score = (5 + essential + nonessential) / 10
+        scaled_habitability = (essential + nonessential)
+        if model == "exponential":
+            score = np.exp((scaled_habitability - 1)*baseline)
+        elif model == "logistic":
+            score = 1 / (1 + (np.exp(-1*(desperation+scaled_habitability*standards))))
+        elif model == "full":
+            log_factor = 1 / (1 + (np.exp(-1*(desperation+scaled_habitability*standards))))
+            score = np.exp((scaled_habitability - 1)*baseline/log_factor)
+        else:
+            raise ValueError("Probability scoring model " + str(model) + " not recognized")
         #Return the score as a probability
         if score < 0:
             return 0
@@ -225,56 +246,55 @@ if __name__ == "__main__":
     print("Habitability: " + str(P.habitability()))
     #"""
     #Test the habitability of different planets
-    """
-    A = Planet("Antarctica", [1, -0.5, 0.9, -0.8, -0.4, -0.7, 0.8, 0, 0, 0])
-    print(A.name + ": " + str(A.habitability()) + "\t\t" + str(round(A.habitability(), 2)))
-    D = Planet("Sahara", [1, -0.8, 0.9, -0.3, -0.4, -0.7, 0.5, -0.2, 0, 0])
-    print(D.name + ": " + str(D.habitability()) + "\t\t" + str(round(D.habitability(), 2)))
-    J = Planet("Jungle", [1, 1, 1, 0.9, 0.8, 0.8, 1, -0.8, -0.1, -0.4])
-    print(J.name + ": " + str(J.habitability()) + "\t\t" + str(round(J.habitability(), 2)))
-    Mg = Planet("Smog", [1, 0.1, -0.1, -0.3, 0.4, 0.4, 0.8, 0.1, 0, 0])
-    print(Mg.name + ": " + str(Mg.habitability()) + "\t\t" + str(round(Mg.habitability(), 2)))
-    Cc = Planet("Citified, civil", [0.8, 0.7, 0.4, 0.8, 0.4, 0.4, 0.9, 0, 0, -0.3])
-    print(Cc.name + ": " + str(Cc.habitability()) + "\t" + str(round(Cc.habitability(), 2)))
-    Ch = Planet("Citified, hostile", [0.8, 0.7, 0.4, 0.8, 0.4, 0.4, 0.8, -0.1, 0, -0.9])
-    print(Ch.name + ": " + str(Ch.habitability()) + "\t" + str(round(Ch.habitability(), 2)))
-    Mn = Planet("Moon", [-0.1, -1, -1, -0.5, -1, -0.9, 0, 0, 0, 0])
-    print(Mn.name + ": " + str(Mn.habitability()) + "\t\t" + str(round(Mn.habitability(), 2)))
-    W = Planet("Water World", [0.9, 0.3, 0.8, 0.8, 0.8, 0, 0.9, -0.8, 0, 0])
-    print(W.name + ": " + str(W.habitability()) + "\t\t" + str(round(W.habitability(), 2)))
-    print(P.name + ": " + str(P.habitability()) + "\t\t" + str(round(P.habitability(), 2)))
     #"""
-    #Plot the differences between the two habitability functions
-    """
-    random_planets = [S.get_planet().both_habitability() for _ in range(int(1e5))]
-    plt.subplot(131)
-    plt.title("Habitability")
-    plt.hist([x[0] for x in random_planets], bins=np.linspace(-1,1,200), density=True)
-    plt.subplot(132)
-    plt.title("Simple Habitability")
-    plt.hist([x[1] for x in random_planets], bins=np.linspace(-1,1,200), density=True)
-    plt.subplot(133)
-    plt.title("Difference of Complex and Simple Habitability")
-    plt.hist([x[0]-x[1] for x in random_planets], bins=np.linspace(-1,1,75), density=True)
+    A = Planet("Antarctica", [1, -0.5, 0.9, -0.8, -0.4, -0.7, 0.8, 0, 0, 0])
+    D = Planet("Sahara", [1, -0.8, 0.9, -0.3, -0.4, -0.7, 0.5, -0.2, 0, 0])
+    J = Planet("Jungle", [1, 1, 1, 0.9, 0.8, 0.8, 1, -0.8, -0.1, -0.4])
+    Mg = Planet("Smog", [1, 0.1, -0.1, -0.3, 0.4, 0.4, 0.8, 0.1, 0, 0])
+    Cc = Planet("Citified, civil", [0.8, 0.7, 0.4, 0.8, 0.4, 0.4, 0.9, 0, 0, -0.3])
+    Ch = Planet("Citified, hostile", [0.8, 0.7, 0.4, 0.8, 0.4, 0.4, 0.8, -0.1, 0, -0.9])
+    Mn = Planet("Moon", [-0.1, -1, -1, -0.5, -1, -0.9, 0, 0, 0, 0])
+    W = Planet("Water World", [0.9, 0.3, 0.8, 0.8, 0.8, 0, 0.9, -0.8, 0, 0])
+    planets = [A, D, J, Mg, Cc, Ch, Mn, W, P]
+    for p in planets:
+        print(p.name + ": " + str(p.habitability()))
+        print(round(p.habitability(), 2))
+    #Test the score of the different planets using different ships and different desperations
+    all_needs = np.full((11,10),1)
+    for i in range(10):
+        all_needs[i,i] = 2
+    names = ["Gravity", "Water", "Atmosphere", "Temperature", "Edible Life", 
+             "Resources", "Radiation", "Useful Life", "Relics", "Neighbors", "Normal"]
+    ships = [Ship(names[i], needs=all_needs[i]) for i in range(11)]
+    plt.suptitle("Habitability Probability Score")
+    for i, d in enumerate([-11, -2.8, 2.8, 11]):
+        plt.subplot(221+i)
+        plt.title("Desperation Level " + str(i))
+        for p in planets:
+            scores = [ship.score(p, desperation=d) for ship in ships]
+            plt.plot(scores, label=p.name)
+        plt.xticks(np.arange(0,11),names)
+    plt.legend()
     plt.show()
     #"""
     #Test score function
     """
+    plt.suptitle("Scores of Random Planets by Ship Type")
     plt.subplot(221)
-    plt.title("1% Chance of Deal-Breaking per Attribute")
-    random_probs = [Ship("Test", needs=np.random.randint(0, 21, size=10)/4, nogo=[(np.random.rand() < 0.01) for _ in range(10)]).score() for _ in range(int(1e5))]
+    plt.title("No Deal-Breakers")
+    random_probs = [Ship("Test", needs=np.random.randint(0, 21, size=10)/4).score() for _ in range(int(1e5))]
     plt.hist(random_probs, bins=np.linspace(0,1,100), density=True)
     plt.subplot(222)
-    plt.title("5% Chance of Deal-Breaking per Attribute")
-    random_probs = [Ship("Test", needs=np.random.randint(0, 21, size=10)/4, nogo=[(np.random.rand() < 0.05) for _ in range(10)]).score() for _ in range(int(1e5))]
+    plt.title("50% Chance of Deal-Breaking on Negatives")
+    random_probs = [Ship("Test", needs=np.random.randint(0, 21, size=10)/4, nogo=np.random.choice([-1,0], 10)).score() for _ in range(int(1e5))]
     plt.hist(random_probs, bins=np.linspace(0,1,100), density=True)
     plt.subplot(223)
-    plt.title("10% Chance of Deal-Breaking per Attribute")
-    random_probs = [Ship("Test", needs=np.random.randint(0, 21, size=10)/4, nogo=[(np.random.rand() < 0.1) for _ in range(10)]).score() for _ in range(int(1e5))]
+    plt.title("Completely Random Negative Deal-Breaking")
+    random_probs = [Ship("Test", needs=np.random.randint(0, 21, size=10)/4, nogo=np.random.randint(-10, 1, size=10)/10).score() for _ in range(int(1e5))]
     plt.hist(random_probs, bins=np.linspace(0,1,100), density=True)
     plt.subplot(224)
-    plt.title("20% Chance of Deal-Breaking per Attribute")
-    random_probs = [Ship("Test", needs=np.random.randint(0, 21, size=10)/4, nogo=[(np.random.rand() < 0.2) for _ in range(10)]).score() for _ in range(int(1e5))]
+    plt.title("No-Go on All Negatives")
+    random_probs = [Ship("Test", needs=np.random.randint(0, 21, size=10)/4, nogo=np.full(10, 0)).score() for _ in range(int(1e5))]
     plt.hist(random_probs, bins=np.linspace(0,1,100), density=True)
     plt.show()
     #"""
