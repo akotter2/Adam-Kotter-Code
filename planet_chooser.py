@@ -11,6 +11,7 @@ a person is usually final."""
 
 import numpy as np
 from matplotlib import pyplot as plt
+import copy
 
 
 class Planet():
@@ -25,6 +26,13 @@ class Planet():
     missiles.
     As an aside, these attributes represent the planet's most ideal landing site. 
     Future updates may allow for various landing sites per planet.
+    Attribute scale:
+        1.0: Edenic, paradisiacal conditions
+        0.5: Uncomfortable, but liveable without too much extra effort
+        0.0: Liveable, but barely
+       -0.5: Somewhat complicated technology is required for survival
+       -1.0: Very advanced technology is required for survival
+
     
     Attributes: 
     (Note that each attribute with a bracketed number is stored in that position of 
@@ -135,23 +143,71 @@ class Ship():
         Choose (Planet; bool): decides whether or not to colonize a planet.
     """
     
-    def __init__(self, name, col=1000, sca=1, con=1, needs=np.full(10,1), nogo=np.full(10,-1)):
+    def __init__(self, name, col=1000, sca=1, con=1, needs=np.full(10,1,dtype=float), no=np.full(10,-1,dtype=float)):
         """Accepts a name, a number of colonists, a scanner quality, a construction 
         module quality, and a list-like object of floats between 0 and 5, then 
         assigns the list elements to the different ship needs. Additionally, accepts 
-        a list of boolean values representing whether or not a negative value for a 
-        planetary attribute is permissible."""
+        a list of floats from -1 to 1 representing the minimum acceptable value for a 
+        planetary attribute."""
         self.name = name
         self.colonists = col
         self.scanners = sca
         self.construction = con
         self.needs = needs
-        self.nogo = nogo
+        self.nogo = no
 
-    def get_planet(self):
-        """Creates a random planet drawn from a uniform distribution.
-        Future updates will allow for draws from different distributions."""
-        return Planet("Random", np.random.randint(-10, 11, size=10)/10)
+    def get_planet(self, dist="normal-essential-n", stdev=0.2, s=0.5):
+        """Creates a random planet drawn from a specified distribution.
+        
+        Parameters:
+            dist (str): the distribution used to generate the planet.
+                "uniform": all attributes are selected from a uniform distribution.
+                "normal": all attributes are selected from a normal distribution 
+                centered at a mean selected from a uniform distribution and with a 
+                standard deviation specified by user input.
+                "normal-essential-u": all essential attributes are chosen the same way 
+                as in "normal", while non-essential attributes are selected from a 
+                uniform distribution.
+                "normal-essential-n": all attributes are chosen the same way 
+                as in "normal-essential-u", with the exception that non-essential 
+                attributes are selected from a normal distribution of standard 
+                deviation specified as 's'.
+            stdev (float): the standard deviation of the "normal" and the  "normal-
+            essential" distributions.
+        """
+        if dist == "uniform":
+            return Planet("Random", np.random.randint(-10, 11, size=10)/10)
+        elif dist == "normal":
+            base_score = np.random.randint(-10, 11)/10
+            attributes = np.random.normal(loc=base_score, scale=stdev, size=10)
+            for i in range(len(attributes)):
+                if attributes[i] > 1:
+                    attributes[i] = 1
+                if attributes[i] < -1:
+                    attributes[i] = -1
+            return Planet("Random", attributes)
+        elif dist == "normal-essential-u":
+            base_score = np.random.randint(-10, 11)/10
+            attributes = np.random.normal(loc=base_score, scale=stdev, size=10)
+            attributes[7:10] = np.random.randint(-10, 11, size=3)/10
+            for i in range(len(attributes)):
+                if attributes[i] > 1:
+                    attributes[i] = 1
+                if attributes[i] < -1:
+                    attributes[i] = -1
+            return Planet("Random", attributes)
+        elif dist == "normal-essential-n":
+            base_score = np.random.randint(-10, 11)/10
+            attributes = np.random.normal(loc=base_score, scale=stdev, size=10)
+            attributes[7:10] = np.random.normal(loc=0, scale=s, size=3)
+            for i in range(len(attributes)):
+                if attributes[i] > 1:
+                    attributes[i] = 1
+                if attributes[i] < -1:
+                    attributes[i] = -1
+            return Planet("Random", attributes)
+        else:
+            raise ValueError(str(dist) + " isn't a recognized probability distribution")
 
     def score(self, planet=None, model="full", desperation=-2.8, standards=3.9, baseline=0.2):
         """Return the colonizability score (which is a probability value) of a given 
@@ -194,7 +250,8 @@ class Ship():
         essential = np.mean(scaled[0:7])
         #Sum and scale the nonessential scaled attributes
         nonessential = sum((scaled[7:10])) / 7
-        #Get the planet's colonizability score
+        #Get the planet's colonizability score by model
+        #Treat scaled_habitability as x in each model
         scaled_habitability = (essential + nonessential)
         if model == "exponential":
             score = np.exp((scaled_habitability - 1)*baseline)
@@ -213,22 +270,226 @@ class Ship():
         else:
             return score
 
-    def choose(self, planet=None):
+    def choose(self, planet=None, model="full", desperation=-2.8, standards=3.9, baseline=0.2):
         """Return True or False based on whether or not the ship should colonize the 
-        given planet. If no planet is given, a random one is generated."""
-        prob = self.score(planet)
+        given planet. If no planet is given, a random one is generated. See docstring 
+        for score() function for more information on parameters and so forth."""
+        prob = self.score(planet, model=model, desperation=desperation, standards=standards, baseline=baseline)
         return np.random.rand() < prob
 
     def __str__(self):
         return self.name
 
 
+class Simulator():
+    """Creates randomized scenarios to find an optimal solution for the planet 
+    choosing algorithm.
+    
+    Attributes:
+        Distribution (str): the distribution of planetary attributes in the scenario, 
+        corresponding to Ship.get_planet(dist).
+        Model (str): the probability scaling model used for determining a planet's 
+        colonizability, corresponding to Ship.choose(model).
+        Ship (Ship): tracks the status of the ship used in the current simulation.
+        Planets (list, Planet): a list of all the planets in the simulation. The 
+        length of the list is defined in the constructor, and the simulation ends if 
+        the last planet is reached.
+        Landed (bool): whether or not the ship has landed on a planet.
+        Current (int): the index of the current planet to be selected.
+        Desperation (float): how willing the ship is to settle for less-than-ideal 
+        conditions. The more negative the value, the less desperate the ship, the 
+        more positive the value, the more desperate the ship.
+    
+    Functions:
+        Optimal (none; Planet): returns the most habitable planet in the simulation.
+        Turn(none; bool): moves to the next planet in the simulation, chooses whether 
+        to settle or not, and applies random changes in ship status. Returns True if 
+        the ship settled on a planet, False if the ship reached the end of the 
+        simulation without settling on a planet.
+        Run (none; float): implements turn() without user input until the end of the 
+        simulation, then returns the difference between the ideal planet in the 
+        simulation and the planet that was chosen.
+        Reset (none; none): creates a new ship, randomizes the planets, and resets 
+        the index of the current planet, the desperation, and the landing status to 
+        their default values.
+    """
+
+    def __init__(self, name="Simulation", length=int(1e2), dist="normal-essential-n", 
+                 model="full", desperation=-10.0):
+        self.ship = Ship(name)
+        self.distribution = dist
+        self.model = model
+        self.planets = [self.ship.get_planet(dist) for _ in range(length)]
+        self.landed = False
+        self.current = -1
+        self.desperation = desperation
+        self.desp_default = desperation
+    
+    def optimal(self):
+        """Get the index of the planet with the highest habitability score."""
+        max_i = 0
+        for i in range(len(self.planets)):
+            if self.planets[i].habitability() > self.planets[max_i].habitability():
+                max_i = i
+        return max_i
+    
+    def turn(self):
+        """Moves to the next planet in the simulation and apply different effects."""
+        #Move to next planet
+        if self.landed or self.current >= len(self.planets)-1:
+            self.landed = True
+            return
+        self.current += 1
+        #Increase desperation and receive damage
+        self.desperation += 0.1
+        index = np.random.randint(0,10)
+        self.ship.nogo[index] += 0.1
+        self.ship.needs[index] += 0.1
+        p = self.planets[self.current]
+        #print("Habitability of planet " + p.name + ": " + str(p.habitability()))
+        self.landed = self.ship.choose(planet=p, model=self.model, desperation=self.desperation)
+        if self.current >= len(self.planets):
+            self.landed = True
+            return
+    
+    def run(self):
+        """Implement turn() repeatedly, then return the difference between the 
+        selected planet and the optimal planet."""
+        while self.current < len(self.planets) and not self.landed:
+            self.turn()
+        return self.planets[self.optimal()].habitability() - self.planets[self.current].habitability()
+    
+    def reset(self):
+        """Restores randomization and simulation defaults."""
+        name = self.ship.name
+        self.ship = None
+        self.ship = Ship(name)
+        length = len(self.planets)
+        self.planets = [self.ship.get_planet(self.distribution) for _ in range(length)]
+        self.landed = False
+        self.current = -1
+        self.desperation = self.desp_default
 
 
 #For testing porpoises only
 if __name__ == "__main__":
+    #Create ships with different needs
+    all_needs = np.full((11,10),1)
+    for i in range(10):
+        all_needs[i,i] = 2
+    names = ["Gravity", "Water", "Atmosphere", "Temperature", "Edible Life", 
+             "Resources", "Radiation", "Useful Life", "Relics", "Neighbors", "Normal"]
+    ships = [Ship(names[i], needs=all_needs[i]) for i in range(11)]
+
+    #Create different planets
     S = Ship("Test")
     P = S.get_planet()
+    Pl = Planet("Plains", [0.8, 0.3, 0.9, 0.2, 0.5, 0.5, 0.8, 0.1, 0, 0.1])
+    A = Planet("Antarctica", [1, -0.5, 0.9, -0.8, -0.4, -0.7, 0.8, 0, 0, 0])
+    D = Planet("Sahara", [1, -0.8, 0.9, -0.3, -0.4, -0.7, 0.5, -0.2, 0, 0])
+    J = Planet("Jungle", [1, 1, 1, 0.9, 0.8, 0.8, 1, -0.8, -0.1, -0.4])
+    Mg = Planet("Smog", [1, 0.1, -0.1, -0.3, 0.4, 0.4, 0.8, 0.1, 0, 0])
+    Cc = Planet("Citified, civil", [0.8, 0.7, 0.4, 0.8, 0.4, 0.4, 0.9, 0, 0, -0.3])
+    Ch = Planet("Citified, hostile", [0.8, 0.7, 0.4, 0.8, 0.4, 0.4, 0.8, -0.1, 0, -0.9])
+    Mn = Planet("Moon", [-0.1, -1, -1, -0.5, -1, -0.9, 0, 0, 0, 0])
+    W = Planet("Water World", [0.9, 0.3, 0.8, 0.8, 0.8, 0, 0.9, -0.8, 0, 0])
+    E = Planet("Eden", [1, 1, 1, 1, 1, 1, 1, 1, 0, 0])
+    I = Planet("Crushing Inferno", [-1, -1, -1, -1, -1, -0.2, -0.5, 0, -0.2, 0])
+    planets = [A, D, J, Mg, Cc, Ch, Mn, W, Pl, E, I, P]
+
+    #Test distributions for get_planet()
+    """
+    plt.suptitle("Planetary Attributes by Distribution")
+    labels = names.copy()
+    labels.pop()
+    labels.append("Habitability")
+    distributions = ["uniform", "normal", "normal-essential-n", "normal-essential-u"]
+    stdevs = [0.1, 0.2, 0.5, 0.7, 1]
+    planets = [[[S.get_planet(dist=d, stdev=st) for _ in range(5)] for st in stdevs] for d in distributions]
+    #Uniform
+    plt.subplot(321)
+    plt.title("Uniform")
+    for planet in planets[0][0]:
+        plt.plot(np.hstack([planet.attributes, planet.habitability()]))
+        plt.xticks(np.arange(0,11), labels)
+    #Normal
+    for i in range(len(stdevs)):
+        plt.subplot(322+i)
+        plt.title("Normal, STDEV = " + str(stdevs[i]))
+        for planet in planets[1][i]:
+            plt.plot(np.hstack([planet.attributes, planet.habitability()]))
+            plt.xticks(np.arange(0,11), labels)
+    plt.show()
+    #Normal-Essential-N
+    plt.suptitle("Planetary Attributes by Distribution")
+    plt.subplot(321)
+    plt.title("Uniform")
+    for planet in planets[0][0]:
+        plt.plot(np.hstack([planet.attributes, planet.habitability()]))
+        plt.xticks(np.arange(0,11), labels)
+    for i in range(len(stdevs)):
+        plt.subplot(322+i)
+        plt.title("Normal-Essential-N, STDEV = " + str(stdevs[i]))
+        for planet in planets[2][i]:
+            plt.plot(np.hstack([planet.attributes, planet.habitability()]))
+            plt.xticks(np.arange(0,11), labels)
+    plt.show()
+    #Normal-Essential-U
+    plt.suptitle("Planetary Attributes by Distribution")
+    plt.subplot(321)
+    plt.title("Uniform")
+    for planet in planets[0][0]:
+        plt.plot(np.hstack([planet.attributes, planet.habitability()]))
+        plt.xticks(np.arange(0,11), labels)
+    for i in range(len(stdevs)):
+        plt.subplot(322+i)
+        plt.title("Normal-Essential-U, STDEV = " + str(stdevs[i]))
+        for planet in planets[3][i]:
+            plt.plot(np.hstack([planet.attributes, planet.habitability()]))
+            plt.xticks(np.arange(0,11), labels)
+    plt.show()
+    #"""
+
+    #Test the Normal-Essential distributions
+    """
+    #Get the planets
+    distributions = ["uniform", "normal-essential-n", "normal-essential-u"]
+    stdevs = [0.1, 0.2, 0.5, 0.7, 1]
+    planets = [[[S.get_planet(dist=d, s=st) for _ in range(5)] for st in stdevs] for d in distributions]
+    #Get the x-axis labels
+    labels = names.copy()
+    labels.pop()
+    labels.append("Habitability")
+    #Normal-Essential-N
+    plt.suptitle("Normal-Essential-N")
+    plt.subplot(321)
+    plt.title("Uniform")
+    for planet in planets[0][0]:
+        plt.plot(np.hstack([planet.attributes, planet.habitability()]))
+        plt.xticks(np.arange(0,11), labels)
+    for i in range(len(stdevs)):
+        plt.subplot(322+i)
+        plt.title("S = " + str(stdevs[i]))
+        for planet in planets[1][i]:
+            plt.plot(np.hstack([planet.attributes, planet.habitability()]))
+            plt.xticks(np.arange(0,11), labels)
+    plt.show()
+    #Normal-Essential-U
+    plt.suptitle("Normal-Essential-U")
+    plt.subplot(321)
+    plt.title("Uniform")
+    for planet in planets[0][0]:
+        plt.plot(np.hstack([planet.attributes, planet.habitability()]))
+        plt.xticks(np.arange(0,11), labels)
+    for i in range(len(stdevs)):
+        plt.subplot(322+i)
+        plt.title("S = " + str(stdevs[i]))
+        for planet in planets[2][i]:
+            plt.plot(np.hstack([planet.attributes, planet.habitability()]))
+            plt.xticks(np.arange(0,11), labels)
+    plt.show()
+    #"""
+
     #Test the Planet attributes
     """
     print(P)
@@ -245,76 +506,168 @@ if __name__ == "__main__":
     print("Neighbors: " + str(P.neighbors))
     print("Habitability: " + str(P.habitability()))
     #"""
+
     #Test the habitability of different planets
-    #"""
-    A = Planet("Antarctica", [1, -0.5, 0.9, -0.8, -0.4, -0.7, 0.8, 0, 0, 0])
-    D = Planet("Sahara", [1, -0.8, 0.9, -0.3, -0.4, -0.7, 0.5, -0.2, 0, 0])
-    J = Planet("Jungle", [1, 1, 1, 0.9, 0.8, 0.8, 1, -0.8, -0.1, -0.4])
-    Mg = Planet("Smog", [1, 0.1, -0.1, -0.3, 0.4, 0.4, 0.8, 0.1, 0, 0])
-    Cc = Planet("Citified, civil", [0.8, 0.7, 0.4, 0.8, 0.4, 0.4, 0.9, 0, 0, -0.3])
-    Ch = Planet("Citified, hostile", [0.8, 0.7, 0.4, 0.8, 0.4, 0.4, 0.8, -0.1, 0, -0.9])
-    Mn = Planet("Moon", [-0.1, -1, -1, -0.5, -1, -0.9, 0, 0, 0, 0])
-    W = Planet("Water World", [0.9, 0.3, 0.8, 0.8, 0.8, 0, 0.9, -0.8, 0, 0])
-    planets = [A, D, J, Mg, Cc, Ch, Mn, W, P]
+    """
     for p in planets:
         print(p.name + ": " + str(p.habitability()))
         print(round(p.habitability(), 2))
+    #"""
+
     #Test the score of the different planets using different ships and different desperations
-    all_needs = np.full((11,10),1)
-    for i in range(10):
-        all_needs[i,i] = 2
-    names = ["Gravity", "Water", "Atmosphere", "Temperature", "Edible Life", 
-             "Resources", "Radiation", "Useful Life", "Relics", "Neighbors", "Normal"]
-    ships = [Ship(names[i], needs=all_needs[i]) for i in range(11)]
+    """
     plt.suptitle("Habitability Probability Score")
-    for i, d in enumerate([-11, -2.8, 2.8, 11]):
-        plt.subplot(221+i)
+    for i, d in enumerate([-11, -5, -2.8, -1, 0, 1, 2.8, 5, 11]):
+        plt.subplot(331+i)
         plt.title("Desperation Level " + str(i))
         for p in planets:
             scores = [ship.score(p, desperation=d) for ship in ships]
             plt.plot(scores, label=p.name)
-        plt.xticks(np.arange(0,11),names)
+        plt.xticks(np.arange(0,11), names, fontsize=5, rotation=0)
     plt.legend()
+    #plt.tight_layout()
     plt.show()
     #"""
+
+    #Test choice of different planets using different ships and different desperations, no no-go's
+    """
+    iters = int(1e2)
+    plt.suptitle("Rate of Acceptance")
+    for i, d in enumerate([-11, -5, -2.8, -1, 0, 1, 2.8, 5, 11]):
+        plt.subplot(331+i)
+        plt.title("Desperation Level " + str(i))
+        for p in planets:
+            acceptances = [np.mean([ship.choose(p, desperation=d) for _ in range(iters)]) for ship in ships]
+            plt.plot(acceptances, label=p.name)
+        plt.xticks(np.arange(0,11), names, fontsize=5, rotation=0)
+        #plt.legend()
+        #plt.show()
+    plt.legend()
+    #plt.tight_layout()
+    plt.show()
+    #Results: 
+        #Only perfection: -11
+        #Choosy, no rush: -5
+        #Seriously considering really uncomfortable conditions: -2.8
+        #Seriously considering some pretty risky conditions: -1
+        #If living outside won't kill me, I'll probably take it: 0
+        #Honestly contemplating unliveable conditions: 1
+        #Honestly contemplating truly hellish conditions: 2.8
+        #Please, I'll take almost anything: 5
+        #Leaps at any chance: 11
+    #"""
+
+    #Test choice of different planets using different ships, desperations, and no-go's
+    """
+    iters = int(1e2)
+    #Create the different no-go parameters and ships to be tested
+    nogos = [np.full(10,-1), np.random.choice([-1,-1,0], size=10), np.random.rand(10)*(-0.2)-0.8, np.random.rand(10)*(-0.4)-0.6, np.random.randint(-10, 1, size=10)/10, np.zeros(10)]
+    nogo_words = ["No No-Go's", "A Few No-Go's on Negatives", "Deal-Breaking at Random Extremes (0.8)", "Deal-Breaking at Random Extremes (0.6)", "Random Negative No-Go's", "No-Go on Negatives"]
+    print(nogo_words[1] + ": " + str(nogos[1]))
+    print(nogo_words[2] + ": " + str(nogos[2]))
+    print(nogo_words[3] + ": " + str(nogos[3]))
+    print(nogo_words[4] + ": " + str(nogos[4]))
+    nogo_ships = [copy.deepcopy(ships) for _ in range(len(nogos))]
+    for i, n in enumerate(nogos):
+        for j in range(len(ships)):
+            nogo_ships[i][j].nogo = n
+    #Cycle through each no-go variation
+    for i in range(len(nogos)):
+        #Plot the acceptance rates by desperation level
+        plt.suptitle("Rate of Acceptance, " + nogo_words[i])
+        for j, d in enumerate([-11, -5, -2.8, -1, 0, 1, 2.8, 5, 11]):
+            plt.subplot(331+j)
+            plt.title("Desperation Level " + str(j))
+            for p in planets:
+                acceptances = [np.mean([ship.choose(p, desperation=d) for _ in range(iters)]) for ship in nogo_ships[i]]
+                plt.plot(acceptances, label=p.name)
+            plt.xticks(np.arange(0,11), names, fontsize=5, rotation=0)
+            #plt.legend()
+            #plt.show()
+        plt.legend()
+        #plt.tight_layout()
+        plt.show()
+    #"""
+
     #Test score function
     """
     plt.suptitle("Scores of Random Planets by Ship Type")
-    plt.subplot(221)
+    plt.subplot(321)
     plt.title("No Deal-Breakers")
     random_probs = [Ship("Test", needs=np.random.randint(0, 21, size=10)/4).score() for _ in range(int(1e5))]
     plt.hist(random_probs, bins=np.linspace(0,1,100), density=True)
-    plt.subplot(222)
-    plt.title("50% Chance of Deal-Breaking on Negatives")
-    random_probs = [Ship("Test", needs=np.random.randint(0, 21, size=10)/4, nogo=np.random.choice([-1,0], 10)).score() for _ in range(int(1e5))]
+    plt.subplot(322)
+    plt.title("33% Chance of Deal-Breaking on Negatives")
+    random_probs = [Ship("Test", needs=np.random.randint(0, 21, size=10)/4, nogo=np.random.choice([-1,-1,0], 10)).score() for _ in range(int(1e5))]
     plt.hist(random_probs, bins=np.linspace(0,1,100), density=True)
-    plt.subplot(223)
+    plt.subplot(323)
     plt.title("Completely Random Negative Deal-Breaking")
     random_probs = [Ship("Test", needs=np.random.randint(0, 21, size=10)/4, nogo=np.random.randint(-10, 1, size=10)/10).score() for _ in range(int(1e5))]
     plt.hist(random_probs, bins=np.linspace(0,1,100), density=True)
-    plt.subplot(224)
+    plt.subplot(324)
     plt.title("No-Go on All Negatives")
     random_probs = [Ship("Test", needs=np.random.randint(0, 21, size=10)/4, nogo=np.full(10, 0)).score() for _ in range(int(1e5))]
+    plt.hist(random_probs, bins=np.linspace(0,1,100), density=True)
+    plt.subplot(325)
+    plt.title("No-Go at Random Extremes (0.8)")
+    random_probs = [Ship("Test", needs=np.random.randint(0, 21, size=10)/4, nogo=np.random.rand(10)*(-0.2)-0.8).choose() for _ in range(int(1e5))]
+    plt.hist(random_probs, bins=np.linspace(0,1,100), density=True)
+    plt.subplot(326)
+    plt.title("No-Go at Random Extremes (0.6)")
+    random_probs = [Ship("Test", needs=np.random.randint(0, 21, size=10)/4, nogo=np.random.rand(10)*(-0.4)-0.6).choose() for _ in range(int(1e5))]
     plt.hist(random_probs, bins=np.linspace(0,1,100), density=True)
     plt.show()
     #"""
     #Test choose function
     """
     iters = int(1e5)
-    print("1% Chance of Deal-Breaking per Attribute")
-    random_choice = [Ship("Test", needs=np.random.randint(0, 21, size=10)/4, nogo=[(np.random.rand() < 0.01) for _ in range(10)]).choose() for _ in range(iters)]
+    print("No Deal-Breakers")
+    random_choice = [Ship("Test", needs=np.random.randint(0, 21, size=10)/4).choose() for _ in range(iters)]
     acceptances = random_choice.count(True)
     print("Acceptance rate: " + str(acceptances/iters) + "\n")
-    print("5% Chance of Deal-Breaking per Attribute")
-    random_choice = [Ship("Test", needs=np.random.randint(0, 21, size=10)/4, nogo=[(np.random.rand() < 0.05) for _ in range(10)]).choose() for _ in range(iters)]
+    print("33% Chance of Negative Deal-Breaking per Attribute")
+    random_choice = [Ship("Test", needs=np.random.randint(0, 21, size=10)/4, nogo=np.random.choice([-1,-1,0], size=10)).choose() for _ in range(iters)]
     acceptances = random_choice.count(True)
     print("Acceptance rate: " + str(acceptances/iters) + "\n")
-    print("10% Chance of Deal-Breaking per Attribute")
-    random_choice = [Ship("Test", needs=np.random.randint(0, 21, size=10)/4, nogo=[(np.random.rand() < 0.1) for _ in range(10)]).choose() for _ in range(iters)]
+    print("Random Negative Deal-Breaking")
+    random_choice = [Ship("Test", needs=np.random.randint(0, 21, size=10)/4, nogo=np.random.randint(-10, 1, size=10)/10).choose() for _ in range(iters)]
     acceptances = random_choice.count(True)
     print("Acceptance rate: " + str(acceptances/iters) + "\n")
-    print("20% Chance of Deal-Breaking per Attribute")
-    random_choice = [Ship("Test", needs=np.random.randint(0, 21, size=10)/4, nogo=[(np.random.rand() < 0.2) for _ in range(10)]).choose() for _ in range(iters)]
+    print("Deal-Breaking at Extremes")
+    random_choice = [Ship("Test", needs=np.random.randint(0, 21, size=10)/4, nogo=np.random.rand(10)*(-0.2)-0.8).choose() for _ in range(iters)]
     acceptances = random_choice.count(True)
     print("Acceptance rate: " + str(acceptances/iters))
     #"""
+
+    #Test the Simulator
+    """
+    Sim = Simulator()
+    print("Index of best planet in galaxy: " + str(Sim.optimal()))
+    print("Habitability of best planet in galaxy: " + str(Sim.planets[Sim.optimal()].habitability()))
+    print("Planetary attributes: \n" + str(Sim.planets[Sim.optimal()].attributes))
+    print("Difference with optimal planet habitability: " + str(Sim.run()))
+    print("Planetary attributes: \n" + str(Sim.planets[Sim.current].attributes))
+    print("Desperation: " + str(Sim.desperation))
+    print("No-go's: " + str(Sim.ship.nogo))
+    print("Needs: " + str(Sim.ship.needs))
+    #"""
+
+    #Test the Simulator repeatedly
+    #"""
+    iters = int(1e1)
+    diffs = np.zeros(iters)
+    habs = np.zeros(iters)
+    Sim = Simulator(length=200)
+    for i in range(iters):
+        diffs[i] = Sim.run()
+        habs[i] = Sim.planets[Sim.current].habitability()
+        print(Sim.current)
+        print(Sim.desperation)
+        print(Sim.ship.nogo)
+        Sim.reset()
+    print("Mean difference from optimal planet: " + str(np.mean(diffs)))
+    print("Mean habitability of settled planet: " + str(np.mean(habs)))
+    #"""
+
+
+
