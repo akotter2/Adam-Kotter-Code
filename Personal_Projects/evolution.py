@@ -205,9 +205,9 @@ class Simulator():
     
     
     def __init__(self, num_c=10, num_s=1, capacity=1000, cap_scale=100, 
-                   creatures=None, selectors=None, just_one=True, distr="normal", 
+                   creatures=None, selectors=None, just_one=False, distr="normal", 
                    center_c=0., scale_c=1., center_s=0., scale_s=1., mut_rate_c=0.1, 
-                   mut_rate_s=0.1):
+                   mut_rate_s=0.1, gen_max=25):
         """Simulator constructor.
         Parameters:
             -Num_c (int): The number of creatures in the beginning of the simulation. 
@@ -238,6 +238,8 @@ class Simulator():
             to the scale of the normal distribution from which mutations are drawn.
             -Mut_rate_s (float): The initial rate of selector mutation, corresponding 
             to the scale of the normal distribution from which mutations are drawn.
+            -Gen_max (int): The maximum number of generations represented in each 
+            simulation.
         """
         
         #Set numeric attributes
@@ -245,6 +247,7 @@ class Simulator():
         self.just_one = just_one
         self.capacity = capacity
         self.cap_scale = cap_scale
+        self.gen_max = gen_max
         
         #Populate the creatures list
         if creatures is None:
@@ -333,11 +336,31 @@ class Simulator():
                 frac_overpop = (self.num_c - cap)/self.num_c
                 avg_str = np.average([c.attributes[c.name_to_index["strength"]] for 
                                                                 c in self.creatures])
-                cut_off = stats.norm.ppf(avg_str*frac_overpop, loc=avg_str)
+                avg_frt = np.average([c.attributes[c.name_to_index["fertility"]] for 
+                                                                c in self.creatures])
+                skipped_attr = [s.name_to_index["mut_rate"]]
+                num_skip = len(skipped_attr)
+                num_attr = len(s.attributes)
+                avg_growth_cost = np.average([c.attributes[[i not in skipped_attr for 
+                                     i in range(num_attr)]] for c in self.creatures])
+                #Count strength and fertility twice in growth cost
+                avg_growth_cost += avg_str/(num_attr-num_skip)
+                avg_growth_cost += avg_frt/(num_attr-num_skip)
+                #Ability to gather sufficient resources is strength minus growth cost
+                avg_resources = avg_str - avg_growth_cost
+                cut_off = stats.norm.ppf(frac_overpop, loc=avg_resources)
                 for c in self.creatures:
+                    #Account for fitness using strength and growth cost
+                    growth_cost = np.average(c.attributes[[i not in skipped_attr for 
+                                                     i in range(num_attr)]])
+                    growth_cost += c.attributes[c.name_to_index["strength"]]/(
+                                                                num_attr - num_skip)
+                    growth_cost += c.attributes[c.name_to_index["fertility"]]/(
+                                                                num_attr - num_skip)
+                    strength_draw = np.random.normal( 
+                                           c.attributes[c.name_to_index["strength"]])
                     #Mark the outcompeted creatures
-                    c_draw = np.random.normal(c.attributes[c.name_to_index["strength"]])
-                    if c_draw < cut_off:
+                    if strength_draw - growth_cost < cut_off:
                         c.attributes[c.name_to_index["strength"]] = -np.inf
         
         #Remove any creature marked for removal
@@ -353,7 +376,8 @@ class Simulator():
         
         #Repopulate
         if self.just_one:
-            pass
+            raise NotImplementedError("Allowing only one survivor to reproduce" + 
+                                       "isn't yet implemented.")
         else:
             add_list = []
             for c in self.creatures:
@@ -367,11 +391,19 @@ class Simulator():
             for c in add_list:
                 self.creatures.append(c)
         
+        #Mutate selectors
+        for s in self.selectors:
+            mut_i = s.name_to_index["mut_rate"]
+            mut_rate_old = s.attributes[mut_i]
+            attr_new = s.permute(scale=np.abs(s.attributes[mut_i]))
+            s.attributes = attr_new
+            s.attributes[mut_i] = mut_rate_old
+        
         #Update the generation number
         self.generation += 1
     
     
-    def run(self, gen_max=25, return_num=False):
+    def run(self, return_num=False):
         """Steps the simulation forward until either the creatures die out or the 
         maximum number of generations is reached, then plots the average attributes as 
         a function of generation.
@@ -387,10 +419,12 @@ class Simulator():
         #Initialize arrays and such
         averages = np.average(np.vstack([c.attributes for c in self.creatures]), 
                                                                             axis=0)
+        s_averages = np.average(np.vstack([s.attributes for s in self.selectors]), 
+                                                                            axis=0)
         att_ind_to_name = self.creatures[0].index_to_name
         if return_num:
             num_c = [self.num_c]
-        while self.num_c > 0 and self.generation < gen_max:
+        while self.num_c > 0 and self.generation < self.gen_max:
             try:
                 #Step and record the averages
                 self.step()
@@ -401,6 +435,8 @@ class Simulator():
                     break
                 averages = np.vstack([averages, np.average(np.vstack([c.attributes for 
                                                     c in self.creatures]), axis=0)])
+                s_averages = np.vstack([s_averages, np.average(np.vstack([s.attributes for 
+                                                    s in self.selectors]), axis=0)])
             except KeyboardInterrupt:
                 break
         
@@ -418,8 +454,10 @@ class Simulator():
             plt.title(att_ind_to_name[i])
             if two_d:
                 plt.plot(averages[:,i])
+                plt.plot(s_averages[:,i])
             else:
                 plt.plot(averages[i])
+                plt.plot(s_averages[i])
             plt.xlabel("Generation")
             plt.ylabel(att_ind_to_name[i] + " value")
         plt.suptitle("Average Attributes by Generation")
@@ -432,7 +470,7 @@ class Simulator():
             plt.ylabel("Population")
             plt.show()
             return averages, num_c
-        return averages
+        return averages, s_averages
     
     
     def __str__(self):

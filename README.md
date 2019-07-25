@@ -1,5 +1,5 @@
 # Adam-Kotter-Code
-My repository for showcasing my different coding projects, divided into school projects and personal projects. As of this writting I am in the process of cleaning up my file system, so some files may have incomplete descriptions or appear in the wrong place.
+My repository for showcasing my different coding projects, divided into school projects, personal projects, and work projects. As of this writing I am in the process of cleaning up my file system, so some files may have incomplete descriptions or appear in the wrong place.
 
 ## Personal Projects
 
@@ -25,3 +25,6 @@ This is a collection of files I'm using to create a text-based RPG in Python.
 
 ## School Projects
 This is a collection of assignments I've completed for my Applied and Computational Math classes. It does not represent a full collection of what I've done. I'm still organizing this section.
+
+## Work Projects
+This is a collection of programs that I've written for my employment. As of this writing, it contains one file (TKG_csv_Resolver.py) that I used to consolidate server user export files at The Kotter Group.
