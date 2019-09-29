@@ -17,13 +17,13 @@ import copy
 class Planet():
     """This class stores information about a planet's habitability. Each attribute is 
     a decimal between -1 and 1, inclusive. Positive numbers represent liveability 
-    without special equipment (anything from especially thick clothing to domed 
-    cities), where 1 represents perfectly ideal conditions and 0 represents the bare 
-    edge of unassisted liveability. Negative numbers represent conditions in which 
-    humans cannot live without special equipment, where close to 0 represents a need 
-    for primitive equipment like spears or reasonably thick clothing and -1 
-    represents a need for futuristic equipment like domed cities or armor-piercing 
-    missiles.
+    without importing special equipment (anything from especially thick clothing to 
+    domed cities), where 1 represents perfectly ideal conditions and 0 represents the 
+    bare edge of unassisted liveability. Negative numbers represent conditions in 
+    which humans cannot live without importing special equipment, where close to 0 
+    represents a need for importing primitive equipment like spears or reasonably 
+    thick clothing and -1 represents a need for futuristic equipment like domed 
+    cities or armor-piercing missiles.
     As an aside, these attributes represent the planet's most ideal landing site. 
     Future updates may allow for various landing sites per planet.
     Attribute scale:
@@ -47,10 +47,10 @@ class Planet():
         metal is, essential.
         Radiation[6] (float): how ideal the planet's protection from cosmic radiation 
         is, essential.
-        Life[7] (float): how helpful or harmful local plants and animals are for things 
-        other than being eaten. Note that 0 represents neutral in this case.
-        Relics[8] (float): how helpful or harmful ruins and other technological remains 
-        on a planet are. Note that 0 represents neutral in this case.
+        Life[7] (float): how helpful or harmful local plants and animals are for 
+        things other than being eaten. Note that 0 represents neutral in this case.
+        Relics[8] (float): how helpful or harmful ruins and other technological 
+        remains on a planet are. Note that 0 represents neutral in this case.
         Neighbors[9] (float): how helpful or harmful other intelligent species on a 
         planet are. Note that 0 represents neutral in this case.
     
@@ -60,7 +60,7 @@ class Planet():
         attributes.
     """
     
-    def __init__(self, name, atr):
+    def __init__(self, name="Default", atr=np.zeros(10)):
         """Accepts a name and list-like object of floats between -1 and 1, then 
         assigns them to the different planetary attributes."""
         if len(atr) != 10:
@@ -78,7 +78,7 @@ class Planet():
         #Average the essential attributes
         essential = np.mean(self.attributes[0:7])
         #Sum and scale the nonessential attributes
-        nonessential = sum((self.attributes[7:10])) / 7
+        nonessential = sum((self.attributes[7:10])) / 6
         return essential + nonessential
     
     def __str__(self):
@@ -156,29 +156,33 @@ class Ship():
         self.needs = needs
         self.nogo = no
 
-    def get_planet(self, dist="normal-essential-n", stdev=0.2, s=0.5):
+    def get_planet(self, dist="normal-essential-n", stdev=0.2, mean=None, s=0.5, m=0.0):
         """Creates a random planet drawn from a specified distribution.
         
         Parameters:
             dist (str): the distribution used to generate the planet.
                 "uniform": all attributes are selected from a uniform distribution.
                 "normal": all attributes are selected from a normal distribution 
-                centered at a mean selected from a uniform distribution and with a 
-                standard deviation specified by user input.
+                centered at a mean specified by the function arguments and with a 
+                standard deviation specified by function arguments. If the mean is 
+                None, then the mean is selected from a uniform distribution.
                 "normal-essential-u": all essential attributes are chosen the same way 
                 as in "normal", while non-essential attributes are selected from a 
                 uniform distribution.
                 "normal-essential-n": all attributes are chosen the same way 
                 as in "normal-essential-u", with the exception that non-essential 
                 attributes are selected from a normal distribution of standard 
-                deviation specified as 's'.
+                deviation specified as 's' and mean specified as 'm'.
             stdev (float): the standard deviation of the "normal" and the  "normal-
             essential" distributions.
         """
         if dist == "uniform":
             return Planet("Random", np.random.randint(-10, 11, size=10)/10)
         elif dist == "normal":
-            base_score = np.random.randint(-10, 11)/10
+            if mean is not None:
+                base_score = mean
+            else:
+                base_score = np.random.randint(-10, 11)/10
             attributes = np.random.normal(loc=base_score, scale=stdev, size=10)
             for i in range(len(attributes)):
                 if attributes[i] > 1:
@@ -187,7 +191,10 @@ class Ship():
                     attributes[i] = -1
             return Planet("Random", attributes)
         elif dist == "normal-essential-u":
-            base_score = np.random.randint(-10, 11)/10
+            if mean is not None:
+                base_score = mean
+            else:
+                base_score = np.random.randint(-10, 11)/10
             attributes = np.random.normal(loc=base_score, scale=stdev, size=10)
             attributes[7:10] = np.random.randint(-10, 11, size=3)/10
             for i in range(len(attributes)):
@@ -199,7 +206,7 @@ class Ship():
         elif dist == "normal-essential-n":
             base_score = np.random.randint(-10, 11)/10
             attributes = np.random.normal(loc=base_score, scale=stdev, size=10)
-            attributes[7:10] = np.random.normal(loc=0, scale=s, size=3)
+            attributes[7:10] = np.random.normal(loc=m, scale=s, size=3)
             for i in range(len(attributes)):
                 if attributes[i] > 1:
                     attributes[i] = 1
@@ -209,10 +216,11 @@ class Ship():
         else:
             raise ValueError(str(dist) + " isn't a recognized probability distribution")
 
-    def score(self, planet=None, model="full", desperation=-2.8, standards=3.9, baseline=0.2):
+    def score(self, planet=None, model="full", desperation=-2.8, standards=3.9, baseline=np.log(np.sqrt(2))):
         """Return the colonizability score (which is a probability value) of a given 
         planet given the ship's current state. If no planet is given, a random one is 
-        generated.
+        generated. In essence, this function gives the probability of this particular 
+        planet being picked for colonization.
         
         Parameters:
             Planet (Planet): the planet being analyzed, defaults to random.
@@ -222,18 +230,21 @@ class Ship():
             with more coming in future updates.
             Desperation (float): how willing the ship is to settle for less-than-ideal 
             conditions, corresponding to a horizontal shift in logistic-based models. 
-            The more negative the value, the less desperate the ship, the more 
-            positive the value, the more desperate the ship.
+            The more negative the value, the less desperate the ship, while the more 
+            positive the value, the more desperate the ship. At default baseline, a 
+            value of 0 corresponds to a 50% chance of choosing a planet with 
+            habitability score 0, or serious contemplation of barely habitable planets.
             Baseline (float): how necessary and non-negotiable ideal conditions in 
             general are for the ship during the scoring. This corresponds to a 
             scaling of the exponential term of exponential-based models. Must be a 
             positive value, with larger values corresponding to a greater need for 
-            ideal conditions.
+            ideal conditions and a greater likelihood of rejecting poor conditions.
             Standards (float): how quickly non-ideal conditions become unacceptable, 
             corresponding to a scaling of the x-term within the exponential of 
             logistic-based models. Must be positive, with larger values representing 
             faster increases in unacceptability after a certain habitability 
-            threshold is reached.
+            threshold is reached. Can also be interpreted as 'open-mindedness' of the 
+            planet-chooser.
             """
         if type(model) != str:
             raise TypeError("Probability scaling model must be in string format")
@@ -249,8 +260,9 @@ class Ship():
         #Average the essential scaled attributes
         essential = np.mean(scaled[0:7])
         #Sum and scale the nonessential scaled attributes
-        nonessential = sum((scaled[7:10])) / 7
+        nonessential = sum((scaled[7:10])) / 6
         #Get the planet's colonizability score by model
+        """Coming soon"""
         #Treat scaled_habitability as x in each model
         scaled_habitability = (essential + nonessential)
         if model == "exponential":
