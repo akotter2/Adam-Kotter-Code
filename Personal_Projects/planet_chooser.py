@@ -216,7 +216,7 @@ class Ship():
         else:
             raise ValueError(str(dist) + " isn't a recognized probability distribution")
 
-    def score(self, planet=None, model="full", desperation=-2.8, standards=3.9, baseline=np.log(np.sqrt(2))):
+    def score(self, planet=None, model="full", desperation=-20, standards=15, baseline=np.log(np.sqrt(2))):
         """Return the colonizability score (which is a probability value) of a given 
         planet given the ship's current state. If no planet is given, a random one is 
         generated. In essence, this function gives the probability of this particular 
@@ -282,7 +282,7 @@ class Ship():
         else:
             return score
 
-    def choose(self, planet=None, model="full", desperation=-2.8, standards=3.9, baseline=0.2):
+    def choose(self, planet=None, model="full", desperation=-20, standards=15, baseline=np.log(np.sqrt(2))):
         """Return True or False based on whether or not the ship should colonize the 
         given planet. If no planet is given, a random one is generated. See docstring 
         for score() function for more information on parameters and so forth."""
