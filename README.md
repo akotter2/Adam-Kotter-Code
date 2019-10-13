@@ -33,6 +33,7 @@ This is a collection of assignments I've completed for my Applied and Computatio
 - Markov Chains: An assignment for practicing using Markov Chains. I added several files of my own to practice more and create funny paragraphs and phrases that sound like my words or the words of others.
 - Shut the Box: A text-based reproduction of a classic arithmetic game. This was for practicing my general Python skills.
 - Complex Visualizer: A file for "graphing" complex functions in terms of angle and magnitude over the complex plane.
+- Chess Knight: A program designed to help determine the average number of moves it takes for a knight starting in a corner of a chess board and moving randomly to return to its starting corner. Uses Markov chains as the primary theoretical basis.
 
 ## Work Projects
 This is a collection of programs that I've written for my employment. As of this writing, it contains one file (TKG_csv_Resolver.py) that I used to consolidate server user export files for Bridge.
