@@ -96,6 +96,50 @@ def matrix_maker():
     #Return the matrix
     return M
 
+def experiment(iters=1000):
+    """Experimentally determines the expected number of moves for the knight to 
+    return to its starting corner. The knight can go into any valid state each move, 
+    and the number of moves is saved after it returns to its corner."""
+    #Initialize trackers
+    current_move = 0
+    all_moves = []
+    #Repeat a statistically significant number of times
+    for k in range(iters):
+        #Track which iteration we're in
+        #print(k)
+        #Initialize knight position
+        knight = [1,1]
+        #Make the first move
+        i = np.random.choice([1,2])
+        j = 3 - i
+        knight = [1+i,1+j]
+        #print(knight)
+        current_move = 1
+        #Repeat until the knight returns to [1,1]
+        while knight != [1,1]:
+            #Choose a valid move
+            moved = False
+            while not moved:
+                i = np.random.choice([-2,-1,1,2])
+                j = np.random.choice([3-np.abs(i),-3+np.abs(i)])
+                #print("Position: " + str(knight))
+                #print("i: " + str(i))
+                #print("j: " + str(j))
+                #print("Current move: " + str(current_move))
+                if knight[0]+i > 0 and knight[0]+i < 9 and knight[1]+j > 0 and knight[1]+j < 9:
+                    moved = True
+                    knight[0] += i
+                    knight[1] += j
+                    current_move += 1
+        #Save the results
+        all_moves.append(current_move)
+    #Return the average number of moves
+    return np.average(all_moves)
+                    
+           
+        
+    
+
 if __name__ == "__main__":
     #Find the inverse of the matrix, then solve for the expected number of moves
     inverse = la.inv(matrix_maker())

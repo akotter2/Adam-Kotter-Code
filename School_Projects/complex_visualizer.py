@@ -6,7 +6,7 @@ from matplotlib.colors import LogNorm
 import numpy as np
 
 
-def plot_complex(f, window=[-1, 1, -1, 1], res=400, title=""):
+def plot_complex(f, window=[-1, 1, -1, 1], res=400, title="", ax_off=True):
     """Visualize the complex-valued function f:C->C on the (res x res) domain
     {a + bi | a in [r_min, r_max], b in [i_min, i_max]} by plotting the
     argument of f(z) and the magnitude of f(z) in separate subplots.
@@ -18,6 +18,7 @@ def plot_complex(f, window=[-1, 1, -1, 1], res=400, title=""):
         title (str): A label for the function to set as the figure title.
             Use r"$<latex code>$" for pretty printing. For example, for the function
             f = lambda z: z**2 - np.sqrt(z), use title=r"$f(z) = z^2 - \sqrt{z}$".
+        ax_off (bool): Whether or not to include the axes on these plots
     """
     #Set up domain
     x = np.linspace(window[0], window[1], res)
@@ -32,10 +33,21 @@ def plot_complex(f, window=[-1, 1, -1, 1], res=400, title=""):
     ax = fig.add_subplot(121, aspect="equal")
     ax.pcolormesh(np.angle(ans), cmap="hsv", vmin=-np.pi, vmax=np.pi)
     plt.title("Angle plot of " + title, fontsize=6)
-    plt.axis("off")
+    if ax_off:
+        plt.axis("off")
+    else:
+        ax.set_xticks(np.linspace(0,res,9))
+        ax.set_yticks(np.linspace(0,res,9))
+        ax.set_xticklabels(np.linspace(window[0], window[1], 9))
+        ax.set_yticklabels(np.linspace(window[2], window[3], 9))
     #Plot |f(z)|
     ax = fig.add_subplot(122, aspect="equal")
     ax.pcolormesh(np.abs(ans), cmap="magma", norm=LogNorm())
     plt.title("Magnitude plot of " + title, fontsize=6)
-    plt.axis("off")
-    plt.show()
+    if ax_off:
+        plt.axis("off")
+    else:
+        ax.set_xticks(np.linspace(0,res,9))
+        ax.set_yticks(np.linspace(0,res,9))
+        ax.set_xticklabels(np.linspace(window[0], window[1], 9))
+        ax.set_yticklabels(np.linspace(window[2], window[3], 9))

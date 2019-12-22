@@ -154,7 +154,7 @@ if __name__ == "__main__":
         #print(random_chain(i)
         #print(forecast(i))
         #print(four_state_forecast(i))
-    PG = ParagraphGenerator("tswift1989.txt")
+    PG = ParagraphGenerator("yoda.txt")
     stanza = PG.continuous_babble()
     for line in stanza:
         print(line)
