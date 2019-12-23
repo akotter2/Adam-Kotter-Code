@@ -261,7 +261,36 @@ def text_getter(book, chap_start="1", chap_end=None, verse_start="1", verse_end=
 
 
 def speaker_getter(name):
-    """"""
+    """Searches the BoM_by_Speaker.txt file (obtained from the Church Historical 
+    Document Corpus at https://bcgmaxwell.wordpress.com/book-of-mormon-by-authors/
+    book-of-mormon-annotated-by-author-and-speaker/) for every instance of words by 
+    the given speaker.
+    
+    Parameters:
+        name (str): The name of the speaker to search for. If multiple speakers with 
+            the same name exist, then must be formatted as "Name #", as in the case 
+            of "Moroni 2".
+    
+    Returns:
+        text (list): A list of verses (str) corresponding to the given speaker. 
+            Returns an empty list if the given speaker doesn't exist."""
+    
+    # Initialize the list and current speaker index
+    text = []
+    current = ""
+    
+    # Define a regex for getting speakers and for switching speakers
+    new_speaker = re.compile(r"\[([\w ]*)\[")
+    switch_speaker = re.compile(r"\]\] ?")
+    
+    # Get the text of The Book of Mormon
+    with open("BoM_by_Speaker.txt", "r") as file:
+        verses = file.readlines()
+        # Run through each verse
+        for verse in verses:
+            pass
+        # Check for switches in speaker
+        # If the current speaker is the right one, save that part of the verse
 
 
 class TextGenerator():
