@@ -381,9 +381,12 @@ class TextGenerator():
         simulate_specific_chapter
         
     """
-    def __init__(self, verses):
+    def __init__(self, verses, n=2):
         """Reads the specified text and builds a transition matrix from its contents. 
-        Text must be broken into a list of verses."""
+        Text must be broken into a list of verses. The variable n specifies how many 
+        words back the advanced transition matrix accounts for and must be an int at 
+        least equal to 2."""
+        self.n = n
         #Count all the unique words in the text
         unique_words = set()
         for verse in verses:
@@ -415,7 +418,47 @@ class TextGenerator():
         #Normalize the columns of the transition matrix
         for i in range(num_words+2):
             self.transition[:,i] /= sum(self.transition[:,i])
-        # Initialize the advanced transition matrix
+        
+        #Count all the unique combinations of n and fewer words in the text
+        unique_word_combos = list()
+        for _ in range(n-1):
+            unique_word_combos.append(set())
+        for verse in verses:
+            for m in range(n-1):
+                words = verse.split()
+                for i in range(len(words)-(m+1)):
+                    unique_word_combos[m].add(tuple([words[i+j] for j in range(2+m)]))
+        num_combos = [len(unique_word_combos[i]) for i in range(n-1)]
+        #Initialize the advanced transition matrices
+        self.transition_adv = [np.zeros([num_words+2, num_combos[i]+2]) for i in range(n-1)]
+        #Set up each advanced transition matrix
+        self.to_index_combo = {i:{} for i in range(n-1)}
+        self.from_index_combo = {i:{} for i in range(n-1)}
+        for m in range(n-1):
+            #Initialize a dictionary corresponding word combos to indices
+            self.to_index_combo[m] = {"$tart":0}
+            for i,combo in enumerate(unique_word_combos[m]):
+                self.to_index_combo[m][combo] = i + 1
+            self.to_index_combo[m]["$top"] = num_combos[m] + 1
+            #Initialize a dictionary corresponding indices to words
+            self.from_index_combo[m] = {0:"$tart"}
+            for i,combo in enumerate(unique_word_combos[m]):
+                self.from_index_combo[i+1] = combo
+            self.from_index_combo[num_combos[m] + 1] = "$top"
+            #Fill the advanced transition matrix
+            for verse in verses:
+                words = verse.split()
+                if words == []:
+                    continue
+                self.transition_adv[m][self.to_index[words[0]], self.to_index_combo[m]["$tart"]] += 1
+                for i in range(len(words)-(m+2)):
+                    self.transition_adv[m][self.to_index[words[i+2+m]], self.to_index_combo[m][tuple([words[i+j] for j in range(2+m)])]] += 1
+                self.transition_adv[m][self.to_index["$top"], self.to_index_combo[m][tuple([words[j-(m+2)] for j in range(2+m)])]] += 1
+            self.transition_adv[m][self.to_index["$top"], self.to_index_combo[m]["$top"]] = 1
+            #Normalize the columns of the transition matrix
+            for i in range(num_combos[m]+2):
+                self.transition_adv[m][:,i] /= sum(self.transition_adv[m][:,i])
+        
         #Initialize the verse transition matrix
         self.verse_transition = np.zeros([num_words+2, num_words+2])
         #Fill the verse transition matrix
@@ -481,7 +524,39 @@ class TextGenerator():
     def advanced_simulate_verse(self):
         """Simulate a verse using the two previous words, not just the immediately 
         preceeding word."""
-        raise NotImplementedError("Still working on this.")
+        #Set current to index of "$tart" and initialize the verse and position tracker
+        current = self.to_index["$tart"]
+        next_word_idx = self.to_index["$tart"]
+        verse = []
+        pos = -1
+        #Transition from word to word until "$top" is reached
+        while next_word_idx != self.to_index["$top"]:
+            #Pull from the appropriate matrix depending on position in verse
+            if pos < self.n:
+                if pos <= 0:
+                    next = np.random.multinomial(1, self.transition[:,current])  #list
+                    current = np.argmax(next)  #int
+                    next_word_idx = np.argmax(next)  #int
+                    verse.append(self.from_index[next_word_idx])  #str
+                    pos += 1
+                else:
+                    current = self.to_index_combo[pos-1][tuple([verse[j] for j in range(pos+1)])]
+                    next = np.random.multinomial(1, self.transition_adv[pos-1][:,current])
+                    next_word_idx = np.argmax(next)
+                    verse.append(self.from_index[next_word_idx])
+                    pos += 1
+            else:
+                current = self.to_index_combo[self.n-2][tuple([verse[pos-self.n+j+1] for j in range(self.n)])]
+                next = np.random.multinomial(1, self.transition_adv[-1][:,current])
+                next_word_idx = np.argmax(next)
+                verse.append(self.from_index[next_word_idx])
+                pos += 1
+        verse.remove("$top")
+        #Convert list of words in the verse into a single string
+        verse_str = ""
+        for word in verse:
+            verse_str += word + " "
+        return verse_str.rstrip()
         
     def simulate_chapter(self):
         """Simulate until the end of a chapter is reached. Returns a list of strings 
