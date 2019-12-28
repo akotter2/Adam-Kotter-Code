@@ -277,20 +277,85 @@ def speaker_getter(name):
     
     # Initialize the list and current speaker index
     text = []
-    current = ""
+    current_speaker = ""
     
     # Define a regex for getting speakers and for switching speakers
     new_speaker = re.compile(r"\[([\w ]*)\[")
     switch_speaker = re.compile(r"\]\] ?")
     
     # Get the text of The Book of Mormon
-    with open("BoM_by_Speaker.txt", "r") as file:
+    with open("BoM_by_Speaker_parsed.txt", "r") as file:
         verses = file.readlines()
+        
         # Run through each verse
         for verse in verses:
-            pass
-        # Check for switches in speaker
-        # If the current speaker is the right one, save that part of the verse
+            
+            # Check for switches in speaker, else assume previous speaker speaks here
+            if new_speaker.search(verse):
+                current_speaker_list = re.findall(new_speaker, verse)
+                num_speakers = len(current_speaker_list)
+                
+                # Check for tailing speech from desired speaker
+                tailing_speech = False
+                if switch_speaker.search(verse):
+                    switch_start = switch_speaker.search(verse).start()
+                    new_start = new_speaker.search(verse).start()
+                    if switch_start < new_start:
+                        tailing_speech = True
+                    if current_speaker == name and tailing_speech:
+                        text.append(verse[:switch_start])
+                
+                # Check for multiple speakers
+                if num_speakers == 1:
+                    current_speaker = current_speaker_list[0]
+                    
+                    # Get the full text of the verse if necessary
+                    if current_speaker == name and not tailing_speech:
+                        modified_verse = re.sub(new_speaker, "", verse)
+                        modified_verse = re.sub(switch_speaker, "", modified_verse)
+                        text.append(modified_verse)
+                    
+                    # Get the last part of the verse if necessary
+                    elif current_speaker == name:
+                        modified_verse = verse[new_start:]
+                        modified_verse = re.sub(new_speaker, "", modified_verse)
+                        modified_verse = re.sub(switch_speaker, "", modified_verse)
+                        text.append(modified_verse)
+                    
+                else:
+                    if name in current_speaker_list:
+                        
+                        # Find where this speaker starts and stops
+                        named_speaker = re.compile("\["+name+"\[")
+                        begin_idxs = []
+                        end_idxs = []
+                        for match in re.finditer(named_speaker, verse):
+                            begin_idx = match.end(0)
+                            end_match = switch_speaker.search(verse, begin_idx)
+                            if end_match is not None:
+                                end_idx = end_match.start(0)
+                            else:
+                                end_idx = -1
+                            begin_idxs.append(begin_idx)
+                            end_idxs.append(end_idx)
+                        # Get the text corresponding to this speaker
+                        for i in range(len(begin_idxs)):
+                            if end_idxs[i] == -1:
+                                text.append(verse[(begin_idxs[i]):])
+                            else:
+                                text.append(verse[(begin_idxs[i]):end_idxs[i]])
+                        
+                    # Set final speaker as current speaker
+                    current_speaker = current_speaker_list[-1]
+                
+            else:
+                
+                # If the current speaker is the right one, save the verse
+                if current_speaker == name:
+                    modified_verse = re.sub(new_speaker, "", verse)
+                    modified_verse = re.sub(switch_speaker, "", modified_verse)
+                    text.append(modified_verse)
+    return text
 
 
 class TextGenerator():
@@ -311,6 +376,7 @@ class TextGenerator():
     Functions:
         simulate_verse
         simulate_specific_verse
+        advanced_simulate_verse
         simulate_chapter
         simulate_specific_chapter
         
@@ -349,6 +415,7 @@ class TextGenerator():
         #Normalize the columns of the transition matrix
         for i in range(num_words+2):
             self.transition[:,i] /= sum(self.transition[:,i])
+        # Initialize the advanced transition matrix
         #Initialize the verse transition matrix
         self.verse_transition = np.zeros([num_words+2, num_words+2])
         #Fill the verse transition matrix
@@ -410,27 +477,32 @@ class TextGenerator():
         for word in verse:
             verse_str += word + " "
         return verse_str.rstrip()
+    
+    def advanced_simulate_verse(self):
+        """Simulate a verse using the two previous words, not just the immediately 
+        preceeding word."""
+        raise NotImplementedError("Still working on this.")
         
     def simulate_chapter(self):
         """Simulate until the end of a chapter is reached. Returns a list of strings 
         where each string is a verse."""
         #Get a sentence
-        sentence = self.babble()
-        words = sentence.split()
-        #Set current to index of the last word and initialize the paragraph
+        verse = self.simulate_verse()
+        words = verse.split()
+        #Set current to index of the last word and initialize the chapter
         current = self.to_index[words[-1]]
-        paragraph = [sentence]
+        chapter = [verse]
         #Transition from sentence to sentence until "$top" is reached
         while current != self.to_index["$top"]:
-            next = np.random.multinomial(1, self.line_transition[:, int(current)])  #list
+            next = np.random.multinomial(1, self.verse_transition[:, int(current)])  #list
             current = np.argmax(next)  #int
             if current == self.to_index["$top"]:
                 break
-            new_sentence = self.specific_babble(self.from_index[current])  #str
-            paragraph.append(new_sentence)  #str
-            new_words = new_sentence.split()
+            new_verse = self.simulate_specific_verse(self.from_index[current])  #str
+            chapter.append(new_verse)  #str
+            new_words = new_verse.split()
             current = self.to_index[new_words[-1]]
-        return paragraph
+        return chapter
 
 
 
