@@ -453,6 +453,11 @@ class TextGenerator():
                 self.transition_adv[m][self.to_index[words[0]], self.to_index_combo[m]["$tart"]] += 1
                 for i in range(len(words)-(m+2)):
                     self.transition_adv[m][self.to_index[words[i+2+m]], self.to_index_combo[m][tuple([words[i+j] for j in range(2+m)])]] += 1
+                if m >= len(self.transition_adv):
+                    print("What on earth?! I thought that this was an unreachable state!")
+                    continue
+                if (m+2) > len(words):
+                    continue
                 self.transition_adv[m][self.to_index["$top"], self.to_index_combo[m][tuple([words[j-(m+2)] for j in range(2+m)])]] += 1
             self.transition_adv[m][self.to_index["$top"], self.to_index_combo[m]["$top"]] = 1
             #Normalize the columns of the transition matrix
