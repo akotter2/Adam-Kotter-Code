@@ -103,7 +103,7 @@ class Character:
 
 
     def attack(self, enemy):
-        """Lowers the health of your enemy."""
+        """Lowers the health of your enemy at the cost of stamina."""
         #Don't attack if you're low on stamina
         if self.stamina < 1:
             print("You are out of stamina! Charge now!")
@@ -111,7 +111,7 @@ class Character:
         else:
             #Give the target a chance to dodge based on their dexterity
             if np.random.binomial(1, (enemy.dex*7.5)/100) == 1:
-                print(enemy.name + " dodged the attack!"
+                print(enemy.name + " dodged the attack!")
             else:
                 #Check for critical strike
                 crit = 1
@@ -399,9 +399,9 @@ class Arena:
 
 
 if __name__ == "__main__":
-    #Gimli = Character("Gimli", "Dwarf")
-    #Ghook = Character("Ghook", "Orc")
-    arena = Arena()
-    arena.player1 = arena.load_save()
-    arena. player2 = arena.load_save()
+    Gimli = Character("Gimli", "Dwarf")
+    Ghook = Character("Ghook", "Orc")
+    arena = Arena(Gimli, Ghook)
+    #arena.player1 = arena.load_save()
+    #arena. player2 = arena.load_save()
     arena.fight()
