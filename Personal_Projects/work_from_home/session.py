@@ -34,7 +34,9 @@ class Session:
             scale helps to ensure consistency and accuracy.
         
         emotion_axes (tuple of str): The names of the emotions for the 
-            axes of the emotion vector space.
+            axes of the emotion vector space. These emotions were 
+            chosen to be fundamental, easy to identify, and useful to 
+            work with.
         
         user (str): The user's unique identifier, used to tell where 
             to save the data to.
@@ -171,20 +173,28 @@ class Session:
         self.data["start_time"].append(datetime.now())
         self.data["ID"].append(self.ID)
         
-        # Ask the user for emotional state keywords and record them
-        emotions = set()
+        # Set up the emotion-recording system
+        emotions = tuple([0.0 for _ in range(len(self.emotion_axes))])
         emotions_done = False
+        i = 0
+        print("On a scale from 0 to 10, how strongly do you feel each "
+              "of the following emotions?")
+        
+        # Ask for the user's state in each emotion and record it
         while not emotions_done:
-            emotion = input("How do you feel? "
-                            "If done, press Enter again. : ")
-            if emotion == "":
-                emotions_done = True
+            emotion = emotion_axes[i]
+            em_state = input("How {} do you feel? : ".format(emotion))
+            # Make sure that the input is valid
+            if em_state.replace(".", "", 1).isdigit():
+                emotions[i] = float(em_state)
+                i += 1
+                # Stop asking if all emotions have been asked for
+                if i >= len(emotion_axes):
+                    emotions_done = True
             else:
-                emotions.add(emotion)
-        print()
-        if emotions == set():
-            emotions.add(None)
+                print("Sorry, {} isn't valid input.".format(em_state))
         self.data["emotion"].append(emotions)
+        print()
         
         # Ask and record whether this is work or a break
         work_type = "other"
