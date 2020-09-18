@@ -53,7 +53,7 @@ class Session:
                     period is the first of the day.
                 ID (int): The unique identifier for the session, used 
                     when aggregating data from multiple sessions.
-                emotion (tuple of float): Numbers corresponding to the 
+                emotion (list of float): Numbers corresponding to the 
                     emotional state of the user at the beginning of a 
                     period, from 0 to 10. The names of the emotions 
                     are given in self.emotion_axes.
@@ -174,7 +174,7 @@ class Session:
         self.data["ID"].append(self.ID)
         
         # Set up the emotion-recording system
-        emotions = tuple([0.0 for _ in range(len(self.emotion_axes))])
+        emotions = [0.0 for _ in range(len(self.emotion_axes))]
         emotions_done = False
         i = 0
         print("On a scale from 0 to 10, how strongly do you feel each "
@@ -182,14 +182,14 @@ class Session:
         
         # Ask for the user's state in each emotion and record it
         while not emotions_done:
-            emotion = emotion_axes[i]
+            emotion = self.emotion_axes[i]
             em_state = input("How {} do you feel? : ".format(emotion))
             # Make sure that the input is valid
             if em_state.replace(".", "", 1).isdigit():
                 emotions[i] = float(em_state)
                 i += 1
                 # Stop asking if all emotions have been asked for
-                if i >= len(emotion_axes):
+                if i >= len(self.emotion_axes):
                     emotions_done = True
             else:
                 print("Sorry, {} isn't valid input.".format(em_state))
