@@ -121,8 +121,9 @@ class Session:
                          "done consistently at a manic pace."
         
         # List the axes of the emotion vector space
-        self.emotion_axes = ("happy", "sad", "angry", "scared", 
-                             "stressed", "anxious", "frustrated")
+        self.emotion_axes = ("happy", "sad", "angry", "powerful", 
+                             "peaceful", "tired", "stressed", 
+                             "anxious", "bored", "lonely")
         
         # Check if the username was set, asking for input if not
         if user is not None:
