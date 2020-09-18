@@ -33,6 +33,9 @@ class Session:
             of the time would be a productivity score of 0.25. This 
             scale helps to ensure consistency and accuracy.
         
+        emotion_axes (tuple of str): The names of the emotions for the 
+            axes of the emotion vector space.
+        
         user (str): The user's unique identifier, used to tell where 
             to save the data to.
         
@@ -48,9 +51,10 @@ class Session:
                     period is the first of the day.
                 ID (int): The unique identifier for the session, used 
                     when aggregating data from multiple sessions.
-                emotion (set of str): Keywords for the emotional state 
-                    of the user at the beginning of the time period, 
-                    such as "content" or "frustrated".
+                emotion (tuple of float): Numbers corresponding to the 
+                    emotional state of the user at the beginning of a 
+                    period, from 0 to 10. The names of the emotions 
+                    are given in self.emotion_axes.
                 type (str): The type of productive period for this 
                     time, either "work", "break", or "other".
                 activity (set of str): Keywords for the activities 
@@ -113,6 +117,10 @@ class Session:
                          "whole time at an optimally fast pace.\n"\
                          "Anything higher than 1 means that work was "\
                          "done consistently at a manic pace."
+        
+        # List the axes of the emotion vector space
+        self.emotion_axes = ("happy", "sad", "angry", "scared", 
+                             "stressed", "anxious", "frustrated")
         
         # Check if the username was set, asking for input if not
         if user is not None:
