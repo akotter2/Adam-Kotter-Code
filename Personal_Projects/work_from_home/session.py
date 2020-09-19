@@ -9,10 +9,12 @@ later saved to a more comprehensive CSV file with data from many
 sessions, where other programs can access the information. If the file 
 is run on its own, it creates a Session object and runs it."""
 
+import csv
 import pandas as pd
 from os import path
 from datetime import datetime
 from session_gui import Session_GUI
+import unicodedata
 
 
 
@@ -291,6 +293,75 @@ class Session:
         # Save the data
         out_data.to_csv("./output/{}_data.csv".format(self.user), 
                         index=False, header=write_header, mode="a")
+    
+    
+    def get_activities(self):
+        """Gets the list of previously used activity tags from the 
+        "tags" folder, accessing only the file specific to the current 
+        user. Creates a new file with generic activities if the user 
+        doesn't have a file to pull activity tags from.
+        
+        Returns: activity_list (list of str): the list of previously 
+            used activity tags for the user."""
+        
+        # Check if the user already has a file
+        user_path = "./tags/{}_tags.csv".format(self.user)
+        if path.exists(user_path):
+            # Get the activities
+            activity_list = []
+            with open(user_path, "r") as in_file:
+                reader = csv.reader(in_file)
+                for row in reader:
+                    activity_list.append(row)
+            return activity_list
+        
+        # Create a new, generic file if the user has no file
+        else:
+            # Create a list of generic activities
+            generic_activities = ["typing", "reading", "reports", 
+                                  "studying", "homework", "exercise", 
+                                  "sleep", "listen to music", "walk", 
+                                  "run", "tv"]
+            
+            # Write the list to a new CSV file
+            with open(user_path, "w", newline="") as out_file:
+                writer = csv.writer(out_file)
+                for activity in generic_activities:
+                    writer.writerow([activity])
+            
+            # Use recursion to return the activities list
+            return self.get_activities()
+    
+    
+    def write_activities(self, new_activities):
+        """Writes new activities to the list of activity tags in the 
+        user's file in the "tags" folder. Is not case-sensitive and 
+        avoids repeats, including from within the file to be written 
+        to. Uses the "get_activities" method to create a new file with 
+        generic activities prepopulated and then write the new 
+        activities if the user does not already have a file with 
+        activity tags.
+        
+        Parameters: new_activities (list or set of str): the list of 
+            activity tags to add to the user's file."""
+        
+        # Make a function for case-desensitization, even for edge cases
+        def caseless(text_orig):
+            NFD = lambda text: unicodedata.normalize("NFD", text)
+            return NFD(NFD(text_orig).casefold())
+            
+        # Bring in the current activities (or make a new file)
+        old_activities = self.get_activities()
+        print(old_activities)
+        
+        # Write the new activities to the file except for repeats
+        user_path = "./tags/{}_tags.csv".format(self.user)
+        with open(user_path, "a", newline="") as file:
+            writer = csv.writer(file)
+            for activity_tag in new_activities:
+                if [caseless(activity_tag)] not in old_activities and \
+                   [activity_tag] not in old_activities:
+                    writer.writerow([caseless(activity_tag)])
 
 
 
