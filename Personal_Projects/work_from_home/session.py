@@ -13,6 +13,7 @@ import csv
 import pandas as pd
 from os import path
 from datetime import datetime
+import unicodedata
 
 
 
@@ -312,7 +313,7 @@ class Session:
             generic_activities = ["typing", "reading", "reports", 
                                   "studying", "homework", "exercise", 
                                   "sleep", "listen to music", "walk", 
-                                  "run", "TV"]
+                                  "run", "tv"]
             
             # Write the list to a new CSV file
             with open(user_path, "w", newline="") as out_file:
@@ -324,15 +325,35 @@ class Session:
             return self.get_activities()
     
     
-    def write_activities(self, activities):
+    def write_activities(self, new_activities):
         """Writes new activities to the list of activity tags in the 
-        user's file in the "tags" folder. Uses sets and is not case-
-        sensitive in order to avoid repeats, including from within the 
-        file to be written to. Will not create a new file if the user 
-        does not have a file in the "tags" folder. The 
-        "get_activities" method implements new file creation."""
+        user's file in the "tags" folder. Is not case-sensitive and 
+        avoids repeats, including from within the file to be written 
+        to. Uses the "get_activities" method to create a new file with 
+        generic activities prepopulated and then write the new 
+        activities if the user does not already have a file with 
+        activity tags.
         
-        pass
+        Parameters: new_activities (list or set of str): the list of 
+            activity tags to add to the user's file."""
+        
+        # Make a function for case-desensitization, even for edge cases
+        def caseless(text_orig):
+            NFD = lambda text: unicodedata.normalize("NFD", text)
+            return NFD(NFD(text_orig).casefold())
+            
+        # Bring in the current activities (or make a new file)
+        old_activities = self.get_activities()
+        print(old_activities)
+        
+        # Write the new activities to the file except for repeats
+        user_path = "./tags/{}_tags.csv".format(self.user)
+        with open(user_path, "a", newline="") as file:
+            writer = csv.writer(file)
+            for activity_tag in new_activities:
+                if [caseless(activity_tag)] not in old_activities and \
+                   [activity_tag] not in old_activities:
+                    writer.writerow([caseless(activity_tag)])
 
 
 
