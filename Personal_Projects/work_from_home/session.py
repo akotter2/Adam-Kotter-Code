@@ -15,7 +15,6 @@ from datetime import datetime
 
 
 
-
 class Session:
     """An object for managing productivity-tracking during a work 
     session.
@@ -284,6 +283,24 @@ class Session:
         # Save the data
         out_data.to_csv("./output/{}_data.csv".format(self.user), 
                         index=False, header=write_header, mode="a")
+    
+    
+    def get_activities(self):
+        """Gets the list of previously used activity tags from the 
+        "tags" folder, accessing only the file specific to the current 
+        user. Creates a new file with generic activities if the user 
+        doesn't have a file to pull activity tags from."""
+        
+        pass
+    
+    
+    def write_activities(self, activities):
+        """Writes new activities to the list of activity tags in the 
+        user's file in the "tags" folder. Will not create a new file 
+        if the user does not have a file in the "tags" folder. The 
+        "get_activities" method implements new file creation."""
+        
+        pass
 
 
 
