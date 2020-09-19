@@ -12,7 +12,7 @@ is run on its own, it creates a Session object and runs it."""
 import pandas as pd
 from os import path
 from datetime import datetime
-
+from session_gui import Session_GUI
 
 
 
@@ -94,10 +94,11 @@ class Session:
     
     
     def __init__(self, user=None, run_now=True):
-        """Begins the session by setting up the data structure. The 
-        username is usually set by prompted user input, but can be set 
-        by passing a string into the parameter "user". The session 
-        will run automatically unless "run_now" is set to False."""
+        """Begins the session by setting up the data structure and 
+        initializing the GUI. The username is usually set by prompted 
+        user input, but can be set by passing a string into the 
+        parameter "user". The session will run automatically unless 
+        "run_now" is set to False."""
         
         # Get the ID for the session
         self.ID = int(datetime.timestamp(datetime.now()))
@@ -124,6 +125,9 @@ class Session:
         self.emotion_axes = ("happy", "sad", "angry", "powerful", 
                              "peaceful", "tired", "stressed", 
                              "anxious", "bored", "lonely")
+        
+        # Create the GUI
+        
         
         # Check if the username was set, asking for input if not
         if user is not None:
@@ -153,6 +157,9 @@ class Session:
     def run(self):
         """Begins and continues the data-gathering process until the 
         session is over, at which point it saves the data."""
+        
+        # Start the session's GUI
+        self.gui = Session_GUI()
         
         # Begin looping until the session is complete
         keep_going = True
