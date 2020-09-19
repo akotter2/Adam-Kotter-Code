@@ -9,6 +9,7 @@ later saved to a more comprehensive CSV file with data from many
 sessions, where other programs can access the information. If the file 
 is run on its own, it creates a Session object and runs it."""
 
+import csv
 import pandas as pd
 from os import path
 from datetime import datetime
@@ -289,15 +290,46 @@ class Session:
         """Gets the list of previously used activity tags from the 
         "tags" folder, accessing only the file specific to the current 
         user. Creates a new file with generic activities if the user 
-        doesn't have a file to pull activity tags from."""
+        doesn't have a file to pull activity tags from.
         
-        pass
+        Returns: activity_list (list of str): the list of previously 
+            used activity tags for the user."""
+        
+        # Check if the user already has a file
+        user_path = "./tags/{}_tags.csv".format(self.user)
+        if path.exists(user_path):
+            # Get the activities
+            activity_list = []
+            with open(user_path, "r") as in_file:
+                reader = csv.reader(in_file)
+                for row in reader:
+                    activity_list.append(row)
+            return activity_list
+        
+        # Create a new, generic file if the user has no file
+        else:
+            # Create a list of generic activities
+            generic_activities = ["typing", "reading", "reports", 
+                                  "studying", "homework", "exercise", 
+                                  "sleep", "listen to music", "walk", 
+                                  "run", "TV"]
+            
+            # Write the list to a new CSV file
+            with open(user_path, "w", newline="") as out_file:
+                writer = csv.writer(out_file)
+                for activity in generic_activities:
+                    writer.writerow([activity])
+            
+            # Use recursion to return the activities list
+            return self.get_activities()
     
     
     def write_activities(self, activities):
         """Writes new activities to the list of activity tags in the 
-        user's file in the "tags" folder. Will not create a new file 
-        if the user does not have a file in the "tags" folder. The 
+        user's file in the "tags" folder. Uses sets and is not case-
+        sensitive in order to avoid repeats, including from within the 
+        file to be written to. Will not create a new file if the user 
+        does not have a file in the "tags" folder. The 
         "get_activities" method implements new file creation."""
         
         pass
